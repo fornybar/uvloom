@@ -1,0 +1,25 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[manifest]
+members = [
+    "multi-root",
+    "one",
+    "two",
+]
+
+[[package]]
+name = "multi-root"
+version = "0.1.0"
+source = { editable = "." }
+
+[[package]]
+name = "one"
+version = "0.1.0"
+source = { editable = "packages/one" }
+
+[[package]]
+name = "two"
+version = "0.1.0"
+source = { editable = "packages/two" }
