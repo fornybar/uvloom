@@ -114,7 +114,7 @@ in
         cp reference.md $out/reference.md
         cp explanation.md $out/explanation.md
         cp guide.md $out/guide.md
-        cp templates.md $o../../templates.md
+        cp templates.md $out/templates.md
         cp index.md $out/index.md
 
         cp ${../assets/docs-style.css} $out/style.css
@@ -140,7 +140,7 @@ in
         render reference.md "uvloom reference" $out/reference.html
         render explanation.md "uvloom explanation" $out/explanation.html
         render guide.md "uvloom full guide" $out/guide.html
-        render templates.md "uvloom templates" $o../../templates.html
+        render templates.md "uvloom templates" $out/templates.html
         render api-site.md "uvloom API" $out/api.html
       '';
 }
