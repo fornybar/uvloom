@@ -1,0 +1,15 @@
+[project]
+name = "smiley-plot"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+smiley-plot = "smiley_plot:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[build-system]
+requires = ["hatchling", "editables"]
+build-backend = "hatchling.build"
