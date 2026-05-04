@@ -37,7 +37,13 @@
           default = pkgs.mkShell {
             packages = [
               (scope.mkEditableVenv { name = "smiley-plot-dev-env"; })
+              pkgs.uv
             ];
+
+            env = {
+              UV_PYTHON = pkgs.lib.getExe scope.interpreter;
+              UV_PYTHON_DOWNLOADS = "never";
+            };
           };
         }
       );

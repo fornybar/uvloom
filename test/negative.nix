@@ -33,30 +33,30 @@ let
   };
 in
 assert fails (
-  project.forPython {
+  (project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
     sourcePreference = "bad";
-  }
+  }).pythonSet
 );
 assert fails (
-  project.forPython {
+  (project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
     overlays = { };
-  }
+  }).pythonSet
 );
 assert fails (
-  project.forPython {
+  (project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
     editable.root = ./fixtures/smiley-plot;
-  }
+  }).editablePythonSet
 );
 assert fails (
-  badPythonProject.forPython {
+  (badPythonProject.forPython {
     inherit pkgs;
-  }
+  }).pythonSet
 );
 assert fails (scope.mkApplication { package = "missing"; });
 assert fails (scope.mkPytestCheck { package = "missing"; });
@@ -69,17 +69,17 @@ assert fails (
 assert fails (multiScope.mkApplication { });
 assert fails (multiScope.mkPytestCheck { });
 assert fails (
-  script.forPython {
+  (script.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
     sourcePreference = "bad";
-  }
+  }).pythonSet
 );
 assert fails (
-  script.forPython {
+  (script.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
     overlays = { };
-  }
+  }).pythonSet
 );
 true

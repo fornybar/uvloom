@@ -186,6 +186,8 @@ let
         mkPytestCheck
         ;
 
+      interpreter = resolvedInterpreter;
+
       nixpkgs = {
         pythonPackagesExtension = mkPythonPackagesExtension;
         package = mkNixpkgsPackage;

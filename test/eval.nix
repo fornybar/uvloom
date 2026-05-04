@@ -132,6 +132,8 @@ assert project ? forPython;
 assert project ? nixpkgs;
 assert project.nixpkgs ? pythonPackagesExtension;
 assert project.nixpkgs ? overlay;
+assert scope ? interpreter;
+assert pkgs.lib.getExe scope.interpreter == pkgs.python312.interpreter;
 assert scope ? pythonSet;
 assert scope ? nixpkgs;
 assert scope.nixpkgs ? pythonPackagesExtension;

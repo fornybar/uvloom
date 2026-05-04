@@ -76,6 +76,7 @@ in
 
     `forPython` returns a scope with:
 
+    - `interpreter`: The resolved Python interpreter derivation. Use `lib.getExe scope.interpreter` for the executable path, for example in `UV_PYTHON`.
     - `pythonSet`: The underlying pyproject.nix package set after build-system, workspace, and user overlays. This is an advanced seam for package-set-level interop.
     - `nixpkgs.pythonPackagesExtension { packages ? localPackages }`: Export selected generated packages as a nixpkgs Python package-set extension.
     - `nixpkgs.package { package ? null, exportPackages ? [ resolved package ] }`: Build one generated package through nixpkgs `buildPythonPackage` compatibility.

@@ -45,6 +45,14 @@ Common arguments:
 
 Returns scope helpers below.
 
+## `scope.interpreter`
+
+Resolved Python interpreter derivation. Use `lib.getExe` for the executable path in dev shells that also expose `uv`:
+
+```nix
+UV_PYTHON = pkgs.lib.getExe scope.interpreter;
+```
+
 ## `scope.mkApplication`
 
 Build console-script application wrapper.
