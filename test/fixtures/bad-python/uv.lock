@@ -1,0 +1,8 @@
+version = 1
+revision = 3
+requires-python = ">=9"
+
+[[package]]
+name = "bad-python"
+version = "0.1.0"
+source = { editable = "." }
