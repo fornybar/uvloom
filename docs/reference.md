@@ -1,8 +1,18 @@
 # Reference
 
-Stable user-facing uvloom API. Built docs also include a full API page.
+Stable user-facing uvloom API. Generated API docs include fuller comments from `uvloom.lib`.
 
-## `uvloom.lib.loadProject`
+## API stability
+
+```nix
+uvloom.lib.apiVersion
+```
+
+Current documented API version: `1`.
+
+## Projects
+
+### `uvloom.lib.loadProject`
 
 Load a `uv` workspace from `pyproject.toml` and `uv.lock`.
 
@@ -10,18 +20,24 @@ Load a `uv` workspace from `pyproject.toml` and `uv.lock`.
 project = uvloom.lib.loadProject { root = ./.; };
 ```
 
+Arguments:
+
+| Argument | Required | Meaning |
+| --- | --- | --- |
+| `root` | Yes | Project root containing `pyproject.toml` and `uv.lock`. |
+
 Returns:
 
 | Attribute | Meaning |
 | --- | --- |
-| `project.forPython` | Create scope for one nixpkgs package set and Python interpreter. |
-| `project.workspace` | Upstream `uv2nix` workspace escape hatch. |
-| `project.nixpkgs.overlay` | Export selected packages through a nixpkgs overlay. |
-| `project.nixpkgs.pythonPackagesExtension` | Export selected packages as a Python package-set extension. |
+| `project.workspace` | Raw upstream `uv2nix` workspace. Escape hatch for `workspace.deps.*`, `mkPyprojectOverlay`, and related upstream APIs. |
+| `project.forPython` | Create one build scope for one nixpkgs package set and interpreter. |
+| `project.nixpkgs.pythonPackagesExtension` | Export selected locked packages as a nixpkgs Python package-set extension. |
+| `project.nixpkgs.overlay` | Flake-overlay convenience wrapper around `pythonPackagesExtension`. |
 
-## `project.forPython`
+### `project.forPython`
 
-Create build scope:
+Create a build scope:
 
 ```nix
 scope = project.forPython {
@@ -30,42 +46,46 @@ scope = project.forPython {
 };
 ```
 
-Common arguments:
+Arguments:
 
-| Argument | Purpose |
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `pkgs` | Required | nixpkgs package set for target system. |
+| `interpreter` | inferred | Python interpreter derivation. If omitted, uvloom chooses one matching workspace `requires-python` when possible. |
+| `sourcePreference` | `"wheel"` | Build-system overlay preference, usually `"wheel"` or `"sdist"`. |
+| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection used by generated workspace overlay. |
+| `overlays` | `[ ]` | Extra pyproject.nix package-set overlays. Must be a list. |
+| `editable` | `null` | Editable config, usually `{ root = "$PWD"; members = [ "my-project" ]; }`. |
+| `environ` | `{ }` | Environment passed to upstream workspace overlay. |
+| `stdenv` | `pkgs.stdenv` | stdenv used by pyproject.nix builds and checks. |
+
+Returns scope helpers:
+
+| Attribute | Meaning |
 | --- | --- |
-| `pkgs` | nixpkgs package set. Required. |
-| `interpreter` | Python interpreter, such as `pkgs.python312`. |
-| `sourcePreference` | Prefer `wheel` or `sdist` where upstream supports it. |
-| `dependencies` | Dependency selection. Defaults to `project.workspace.deps.default`. |
-| `overlays` | Extra pyproject.nix package-set overlays. These are uv2nix-style `overrideScope` overlays, not nixpkgs flake overlays. |
-| `editable` | Editable working-tree config, usually `{ root = "$PWD"; members = [ "my-project" ]; }`. |
-| `environ` | Environment passed to upstream workspace overlay. |
-| `stdenv` | stdenv used by pyproject.nix builds. |
+| `scope.interpreter` | Resolved Python interpreter derivation. |
+| `scope.pythonSet` | Final pyproject.nix package set for non-editable builds. |
+| `scope.mkVenv` | Build virtual environment. |
+| `scope.mkApplication` | Build console-script application wrapper. |
+| `scope.mkPytestCheck` | Build pytest derivation for `checks`. |
+| `scope.nixpkgs.package` | Export and return one nixpkgs-compatible package. |
+| `scope.editablePythonSet` | Final editable package set. Present only when `editable` is configured. |
+| `scope.mkEditableVenv` | Build editable virtual environment. Present only when `editable` is configured. |
 
-Returns scope helpers below.
+## Scope helpers
 
-## `scope.interpreter`
+### `scope.interpreter`
 
-Resolved Python interpreter derivation. Use `lib.getExe` for the executable path in dev shells that also expose `uv`:
-
-```nix
-UV_PYTHON = pkgs.lib.getExe scope.interpreter;
-```
-
-## `scope.mkApplication`
-
-Build console-script application wrapper.
+Resolved Python interpreter. Useful in dev shells:
 
 ```nix
-scope.mkApplication {
-  package = "my-project";
-}
+env = {
+  UV_PYTHON = pkgs.lib.getExe scope.interpreter;
+  UV_PYTHON_DOWNLOADS = "never";
+};
 ```
 
-If workspace has exactly one local package, `package` can be omitted.
-
-## `scope.mkVenv`
+### `scope.mkVenv`
 
 Build virtual environment.
 
@@ -75,14 +95,33 @@ scope.mkVenv {
 }
 ```
 
-Common arguments:
+Arguments:
 
-| Argument | Purpose |
-| --- | --- |
-| `name` | Derivation/environment name. |
-| `dependencies` | Dependency selection. Defaults to `project.workspace.deps.default`. |
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | Required | Derivation/environment name. |
+| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
 
-## `scope.mkPytestCheck`
+### `scope.mkApplication`
+
+Build console-script application wrapper for a local package.
+
+```nix
+scope.mkApplication {
+  package = "my-project";
+}
+```
+
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `package` | inferred | Local package name. May be omitted only when workspace has exactly one local package. |
+| `venv` | generated | Virtual environment used by wrapper. |
+| `pname` | package metadata | Override output package name. |
+| `version` | package metadata | Override output version. |
+
+### `scope.mkPytestCheck`
 
 Build pytest derivation for `checks`.
 
@@ -95,18 +134,20 @@ scope.mkPytestCheck {
 }
 ```
 
-Common arguments:
+Arguments:
 
-| Argument | Purpose |
-| --- | --- |
-| `package` | Local package to test. Can be omitted for single-package workspaces. |
-| `groups` | Dependency groups to include. Defaults to `[ "test" ]`. |
-| `paths` | Test paths. Defaults to `[ "tests" ]`. |
-| `pytestFlags` | Extra pytest flags. |
-| `env` | Environment variables for test derivation. |
-| `nativeBuildInputs` | Extra native build inputs. |
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `package` | inferred | Local package under test. May be omitted only when workspace has exactly one local package. |
+| `groups` | `[ "test" ]` | Optional dependency groups included when `dependencies = null`. |
+| `dependencies` | `null` | Full uv2nix dependency selection override. When null, uvloom uses `{ ${package} = groups; }`. |
+| `name` | `${package}-pytest` | Check derivation name. |
+| `paths` | `[ "tests" ]` | Paths passed to pytest. |
+| `pytestFlags` | `[ ]` | Extra pytest arguments. |
+| `env` | `{ }` | Environment variables for check derivation. |
+| `nativeBuildInputs` | `[ ]` | Extra native build inputs for check derivation. |
 
-## `scope.mkEditableVenv`
+### `scope.mkEditableVenv`
 
 Build virtual environment that imports selected workspace members from working tree.
 
@@ -118,17 +159,43 @@ scope.mkEditableVenv {
 }
 ```
 
-## `scope.pythonSet`
+Arguments:
 
-Final pyproject.nix package set used by non-editable helpers.
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | Required | Derivation/environment name. |
+| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
 
-Use for package overrides, custom derivations, and advanced interop.
+### `scope.pythonSet`
 
-## `scope.editablePythonSet`
+Final pyproject.nix package set after build-system overlay, workspace overlay, and user overlays.
+
+Use for advanced package overrides, custom derivations, and interop with pyproject.nix APIs.
+
+### `scope.editablePythonSet`
 
 Final editable package set. Present only when `editable` is configured.
 
-## `project.nixpkgs.overlay`
+### `scope.nixpkgs.package`
+
+Return one nixpkgs-compatible package directly from a scope.
+
+```nix
+packages.${system}.nixpkgs-style = scope.nixpkgs.package {
+  package = "my-project";
+};
+```
+
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `package` | inferred | Local package to return. |
+| `exportPackages` | `[ package ]` | Packages exported into temporary nixpkgs-style Python package set. Add locked dependencies here when needed. |
+
+## nixpkgs export helpers
+
+### `project.nixpkgs.overlay`
 
 Create a nixpkgs flake overlay that appends uvloom's export adapter to `pythonPackagesExtensions`.
 
@@ -138,24 +205,19 @@ overlays.default = project.nixpkgs.overlay {
 };
 ```
 
-This helper is for the common case. If you need nixpkgs `final` while building pyproject overlays, write the equivalent overlay explicitly:
+This is convenience syntax for appending `project.nixpkgs.pythonPackagesExtension args`:
 
 ```nix
-overlays.default = final: prev: {
+final: prev: {
   pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
-    (project.nixpkgs.pythonPackagesExtension {
-      packages = [ "my-project" ];
-      overlays = [
-        (config.patches.my-project { pkgs = final; })
-      ];
-    })
+    (project.nixpkgs.pythonPackagesExtension args)
   ];
-};
+}
 ```
 
-## `project.nixpkgs.pythonPackagesExtension`
+### `project.nixpkgs.pythonPackagesExtension`
 
-Create nixpkgs-style Python package extension.
+Create a nixpkgs-style Python package-set extension.
 
 ```nix
 python = pkgs.python312.override {
@@ -166,56 +228,101 @@ python = pkgs.python312.override {
 };
 ```
 
-`project.nixpkgs.overlay args` is the flake-overlay convenience form of appending `project.nixpkgs.pythonPackagesExtension args` to `pythonPackagesExtensions`:
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `packages` | local workspace packages | Generated packages to export into nixpkgs-style package set. |
+| `sourcePreference` | `"wheel"` | Build-system overlay preference. |
+| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
+| `overlays` | `[ ]` | pyproject.nix package-set overlays applied before export. |
+| `environ` | `{ }` | Environment passed to workspace overlay. |
+| `stdenv` | package set default | stdenv used by builds. |
+
+List dependencies explicitly when they are missing from nixpkgs or need lockfile versions:
 
 ```nix
-final: prev: {
-  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
-    (project.nixpkgs.pythonPackagesExtension args)
+project.nixpkgs.pythonPackagesExtension {
+  packages = [
+    "my-project"
+    "locked-dependency"
   ];
 }
 ```
 
-Use this explicit form when you need nixpkgs `final` in pyproject overlays or when you need to compose another nixpkgs Python extension after uvloom's export.
+## Scripts
 
-List dependencies explicitly when they are missing from nixpkgs or need lockfile versions.
-
-```nix
-python = pkgs.python312.override {
-  self = python;
-  packageOverrides = project.nixpkgs.pythonPackagesExtension {
-    packages = [
-      "my-project"
-      "locked-dependency"
-    ];
-  };
-};
-```
-
-## `scope.nixpkgs.package`
-
-Return one nixpkgs-compatible package directly.
-
-```nix
-packages.nixpkgs-style = scope.nixpkgs.package {
-  package = "my-project";
-};
-```
-
-## `uvloom.lib.loadScript`
+### `uvloom.lib.loadScript`
 
 Load a PEP 723 inline-metadata script.
 
 ```nix
-script = uvloom.lib.loadScript { script = ./scripts/tool.py; };
-scope = script.forPython { inherit pkgs; interpreter = pkgs.python312; };
+script = uvloom.lib.loadScript {
+  script = ./scripts/tool.py;
+};
 ```
 
-Use `scope.mkApplication { }` to build runnable script package.
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `script` | Required | Python script containing inline metadata. |
+| `lockPath` | `${script}.lock` | uv script lock file. |
+| `config` | `{ }` | uv2nix script config overrides. |
+
+Returns:
+
+| Attribute | Meaning |
+| --- | --- |
+| `script.name` | Script basename without `.py`. |
+| `script.metadata` | Parsed inline script metadata. |
+| `script.config` | Loaded script config. |
+| `script.raw` | Raw upstream uv2nix script value. |
+| `script.forPython` | Create one script scope. |
+
+### `script.forPython`
+
+```nix
+scope = script.forPython {
+  inherit pkgs;
+  interpreter = pkgs.python312;
+};
+```
+
+Arguments mirror project scopes: `pkgs`, optional `interpreter`, `sourcePreference`, `overlays`, `environ`, `workspaceRoot`, and `stdenv`.
+
+Script scope helpers:
+
+| Helper | Meaning |
+| --- | --- |
+| `scope.pythonSet` | Package set containing script dependencies. |
+| `scope.mkVenv { }` | Build script virtual environment. |
+| `scope.renderScript { }` | Render script with venv shebang. |
+| `scope.mkApplication { }` | Build runnable script application. |
+
+### `uvloom.lib.loadScripts`
+
+Load all `.py` inline-metadata scripts from a directory.
+
+```nix
+scripts = uvloom.lib.loadScripts {
+  root = ./scripts;
+};
+```
+
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `root` | Required | Directory containing scripts. |
+| `config` | `{ }` | uv2nix script config overrides for each script. |
+
+Result keys are script filenames without `.py`.
 
 ## Check commands
 
 ```sh
 nix build
 nix flake check
+nix build .#docs
 ```

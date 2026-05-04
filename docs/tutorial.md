@@ -1,13 +1,14 @@
 # Tutorial: first uvloom project
 
-Goal: create a small Python project from a template, lock dependencies with `uv`, then build and test with Nix.
+Goal: create a small Python application from a template, refresh its `uv.lock`, then build and test it with Nix.
 
 ## Prerequisites
 
-- Nix with flakes enabled
-- `uv`
+- Nix with flakes enabled.
+- `uv` available on `PATH`.
+- Internet access for first dependency fetch.
 
-## 1. Create project
+## 1. Create a project
 
 ```sh
 mkdir my-project
@@ -15,12 +16,15 @@ cd my-project
 nix flake init -t github:fornybar/uvloom#simple
 ```
 
-Template gives you:
+Template creates:
 
-- `flake.nix`: Nix outputs
-- `pyproject.toml`: Python package metadata
-- `uv.lock`: Python dependency lock file
-- `tests/`: smoke test
+| Path | Purpose |
+| --- | --- |
+| `flake.nix` | Nix outputs built with uvloom. |
+| `pyproject.toml` | Python project metadata, scripts, dependencies. |
+| `uv.lock` | Locked Python dependency graph. |
+| `src/smiley_plot/` | Example package. |
+| `tests/` | Smoke test you can keep or replace. |
 
 ## 2. Rename package
 
@@ -31,7 +35,20 @@ Edit `pyproject.toml`:
 name = "my-project"
 ```
 
-If you also rename Python modules, update console scripts and tests to match.
+If you also rename the Python module, update the script target and tests:
+
+```toml
+[project.scripts]
+my-project = "my_project:main"
+```
+
+Then update `flake.nix` package names:
+
+```nix
+packages.default = scope.mkApplication { package = "my-project"; };
+```
+
+In a multi-system flake this appears as `packages.${system}.default`.
 
 ## 3. Refresh lock file
 
@@ -39,27 +56,49 @@ If you also rename Python modules, update console scripts and tests to match.
 uv lock
 ```
 
-Keep `uv.lock` in version control. uvloom reads `pyproject.toml` and `uv.lock` through `uv2nix`.
+Commit `uv.lock`. uvloom reads `pyproject.toml` and `uv.lock` through `uv2nix`; it does not resolve Python dependencies during Nix evaluation.
 
-## 4. Build
+## 4. Build application
 
 ```sh
 nix build
 ```
 
-`result` points to the built package or application wrapper from the template.
+`result` points to the built application wrapper. Run it:
 
-## 5. Test
+```sh
+./result/bin/my-project
+```
+
+If you kept the template name, command is:
+
+```sh
+./result/bin/smiley-plot
+```
+
+## 5. Run checks
 
 ```sh
 nix flake check
 ```
 
-This runs checks declared by the template.
+The `simple` template mainly proves the package builds. If you want pytest wired in from the start, use the pytest template:
 
-## 6. See the pattern
+```sh
+nix flake init -t github:fornybar/uvloom#pytest
+```
 
-Open `flake.nix`. Main uvloom shape:
+Or add the check yourself:
+
+```nix
+checks.${system}.pytest = scope.mkPytestCheck {
+  package = "my-project";
+};
+```
+
+## 6. See the uvloom pattern
+
+Open `flake.nix`. Important lines:
 
 ```nix
 project = uvloom.lib.loadProject { root = ./.; };
@@ -71,11 +110,30 @@ scope = project.forPython {
 ```
 
 - `project` loads workspace metadata once.
-- `scope` chooses nixpkgs and Python.
-- Helpers like `scope.mkApplication` and `scope.mkPytestCheck` become normal flake outputs.
+- `scope` selects nixpkgs, Python, dependency selection, overlays, and optional editable mode.
+- Helpers such as `scope.mkApplication`, `scope.mkVenv`, and `scope.mkPytestCheck` become normal flake outputs.
 
-## 7. Next step
+## 7. Add a development shell
 
-- Need `nix develop`? See [Create editable development environment](how-to.md#create-editable-development-environment).
-- Need tests in CI? See [Run pytest in `nix flake check`](how-to.md#run-pytest-in-nix-flake-check).
-- Need API details? See [Reference](reference.md).
+For source changes without rebuilding after every edit, use editable mode. Easiest start:
+
+```sh
+nix flake init -t github:fornybar/uvloom#editable
+```
+
+For an existing flake, see [Create editable development environment](how-to.md#create-editable-development-environment).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `package ... not found` | Match `package = "..."` to `[project].name` in `pyproject.toml`. |
+| `could not infer package; candidates: ...` | Pass `package = "..."` explicitly in multi-package workspaces. |
+| Source changes do not show up in `nix develop` | Use `editable = { root = "$PWD"; members = [ "my-project" ]; };` and `mkEditableVenv`. |
+| Python version mismatch | Pass `interpreter = pkgs.python312;` or another interpreter matching `requires-python`. |
+
+## Next steps
+
+- Need recipes? See [How-to guides](how-to.md).
+- Need exact arguments? See [Reference](reference.md).
+- Need concepts? See [Explanation](explanation.md).

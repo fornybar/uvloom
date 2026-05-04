@@ -5,42 +5,88 @@
   templateDirs,
 }:
 let
+  preferredTemplateOrder = [
+    "simple"
+    "editable"
+    "pytest"
+  ];
+
+  orderedTemplateDirs =
+    builtins.filter (template: builtins.elem template templateDirs) preferredTemplateOrder
+    ++ builtins.filter (template: !(builtins.elem template preferredTemplateOrder)) templateDirs;
+
   templateDocs = pkgs.writeText "uvloom-template-docs.md" (
     ''
-      ## Templates
+      # Templates
 
-      Bundled starter flakes.
+      Bundled starter flakes for common uvloom projects.
+
+      ## Choose a template
+
+      | Template | Best for | Output |
+      | --- | --- | --- |
+      | `simple` | Minimal CLI or application package. | `packages.default` |
+      | `editable` | Local development with working-tree imports. | `devShells.default` |
+      | `pytest` | CI/test setup with pytest. | `checks.pytest` |
+
+      ## Initialize
+
+      ```sh
+      mkdir my-project
+      cd my-project
+      nix flake init -t github:fornybar/uvloom#simple
+      uv lock
+      nix flake check
+      ```
+
+      After initialization, rename `[project].name`, module names, script names, and `package = "..."` values to match your project.
     ''
     + lib.concatMapStringsSep "\n" (
       template:
       let
         path = ../../templates + "/${template}";
         templateFlake = import (path + "/flake.nix");
+        output =
+          if template == "simple" then
+            "`packages.default = scope.mkApplication { ...; }`"
+          else if template == "editable" then
+            "`devShells.default` with `scope.mkEditableVenv`"
+          else if template == "pytest" then
+            "`checks.pytest = scope.mkPytestCheck { ...; }`"
+          else
+            "see generated `flake.nix`";
+        nextStep =
+          if template == "simple" then
+            "Add `mkPytestCheck` or switch to the `pytest` template when tests should run in `nix flake check`."
+          else if template == "editable" then
+            "Use `nix develop`, keep `UV_PYTHON_DOWNLOADS = \"never\"`, and add dependency groups through `mkEditableVenv { dependencies = ...; }` when needed."
+          else if template == "pytest" then
+            "Add package outputs with `scope.mkApplication` when you also need a runnable CLI."
+          else
+            "Open `flake.nix` and adapt outputs to your project.";
       in
       ''
 
-        ### `${template}`
+        ## `${template}`
 
         ${templateFlake.description}
-
-        Initialize it with:
 
         ```sh
         nix flake init -t github:fornybar/uvloom#${template}
         ```
 
-        Template `flake.nix`:
+        Main output: ${output}
 
-        ```nix
-        ${builtins.readFile (path + "/flake.nix")}
-        ```
+        Next: ${nextStep}
       ''
-    ) templateDirs
+    ) orderedTemplateDirs
     + ''
 
-      ## API reference
+      ## Related docs
 
-      Full `uvloom.lib` API.
+      - [Tutorial](tutorial.md) walks through the `simple` template.
+      - [How-to guides](how-to.md) show how to combine application, pytest, editable shell, and export outputs.
+      - [Reference](reference.md) lists helper arguments and defaults.
     ''
   );
 in
@@ -49,12 +95,20 @@ in
     pkgs.runCommand "uvloom-docs"
       {
         nativeBuildInputs = [
+          pkgs.mdbook
           pkgs.nixdoc
-          pkgs.pandoc
         ];
       }
       ''
-        mkdir -p $out
+        mkdir -p src
+
+        cp ${../../docs/index.md} src/index.md
+        cp ${../../docs/tutorial.md} src/tutorial.md
+        cp ${../../docs/how-to.md} src/how-to.md
+        cp ${../../docs/reference.md} src/reference.md
+        cp ${../../docs/explanation.md} src/explanation.md
+        cp ${../../docs/intro.md} src/intro.md
+        cp ${templateDocs} src/templates.md
 
         nixdoc \
           --file ${../../lib/default.nix} \
@@ -62,85 +116,43 @@ in
           --description "" \
           --prefix uvloom.lib \
           --anchor-prefix uvloom-lib- \
-          > api.md
+          > src/api.md
 
-        sed -E 's/ \{#[^}]+\}$//' api.md > api-site.md
+        cat > src/SUMMARY.md <<'EOF'
+        # Summary
 
-        cat > index.md <<'EOF'
-        # uvloom
+        [Home](index.md)
 
-        uvloom is a small Nix library flake for Python projects that use `uv` and `uv2nix`.
+        # Start
 
-        ## Start here
+        - [Tutorial](tutorial.md)
+        - [How-to guides](how-to.md)
 
-        - [Tutorial](tutorial.html): first working project.
-        - [How-to guides](how-to.html): copyable recipes.
-        - [Reference](reference.html): function names and arguments.
-        - [Explanation](explanation.html): project/scope/editable model.
-        - [Templates](templates.html): bundled starter flakes.
-        - [API](api.html): full `uvloom.lib` API.
+        # Reference
 
-        ## Template start
+        - [Reference](reference.md)
+        - [Explanation](explanation.md)
 
-        ```sh
-        mkdir my-project
-        cd my-project
-        nix flake init -t github:fornybar/uvloom#simple
-        uv lock
-        nix flake check
-        ```
+        # More
 
-        ## Main pattern
-
-        ```nix
-        project = uvloom.lib.loadProject { root = ./.; };
-        scope = project.forPython { inherit pkgs; interpreter = pkgs.python312; };
-
-        packages.''${system}.default = scope.mkApplication { package = "my-project"; };
-        checks.''${system}.pytest = scope.mkPytestCheck { package = "my-project"; };
-        ```
+        - [Full guide](intro.md)
+        - [Templates](templates.md)
+        - [API](api.md)
         EOF
 
-        cp ${../../docs/tutorial.md} tutorial.md
-        cp ${../../docs/how-to.md} how-to.md
-        cp ${../../docs/reference.md} reference.md
-        cp ${../../docs/explanation.md} explanation.md
-        cp ${../../docs/intro.md} guide.md
-        cp ${templateDocs} templates.md
-        cp api.md $out/api.md
-        cp api-site.md $out/api-site.md
-        cp tutorial.md $out/tutorial.md
-        cp how-to.md $out/how-to.md
-        cp reference.md $out/reference.md
-        cp explanation.md $out/explanation.md
-        cp guide.md $out/guide.md
-        cp templates.md $out/templates.md
-        cp index.md $out/index.md
+        cat > book.toml <<'EOF'
+        [book]
+        title = "uvloom"
+        description = "Nix helpers for uv2nix projects"
+        language = "en"
+        src = "src"
 
-        cp ${../assets/docs-style.css} $out/style.css
+        [output.html]
+        default-theme = "navy"
+        preferred-dark-theme = "navy"
+        git-repository-url = "https://github.com/fornybar/uvloom"
+        EOF
 
-        render() {
-          page="$1"
-          title="$2"
-          outfile="$3"
-          {
-            echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            echo '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            echo "<title>$title</title><link rel=\"stylesheet\" href=\"style.css?v=4\">"
-            echo '</head><body>'
-            echo '<nav><strong>uvloom</strong><a href="index.html">Home</a><a href="tutorial.html">Tutorial</a><a href="how-to.html">How-to</a><a href="reference.html">Reference</a><a href="explanation.html">Explanation</a><a href="templates.html">Templates</a><a href="api.html">API</a></nav>'
-            pandoc --from gfm --to html --highlight-style=tango "$page"
-            echo '</body></html>'
-          } > "$outfile"
-        }
-
-        render index.md "uvloom docs" $out/index.html
-        render tutorial.md "uvloom tutorial" $out/tutorial.html
-        render how-to.md "uvloom how-to guides" $out/how-to.html
-        render reference.md "uvloom reference" $out/reference.html
-        render explanation.md "uvloom explanation" $out/explanation.html
-        render guide.md "uvloom full guide" $out/guide.html
-        render templates.md "uvloom templates" $out/templates.html
-        render api-site.md "uvloom API" $out/api.html
+        mdbook build --dest-dir $out
       '';
 }

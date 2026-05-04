@@ -1,54 +1,208 @@
 # Explanation
 
-uvloom keeps common `uv2nix` flakes small.
+uvloom keeps common `uv2nix` flakes small while leaving flake ownership with you.
 
-## Project and scope
+It does not replace `uv2nix`. It packages the repeated composition steps behind a small, stable helper API and leaves escape hatches open when you need lower-level control.
 
-Most flakes start here:
+## Why project and scope are separate
+
+Most flakes start with two values:
 
 ```nix
 project = uvloom.lib.loadProject { root = ./.; };
-scope = project.forPython { inherit pkgs; interpreter = pkgs.python312; };
+
+scope = project.forPython {
+  inherit pkgs;
+  interpreter = pkgs.python312;
+};
 ```
 
-`project` comes from `pyproject.toml` and `uv.lock`.
+`project` is Python-workspace information from `pyproject.toml` and `uv.lock`.
 
-`scope` adds the Nix context: nixpkgs package set, Python interpreter, dependency selection, overlays, and optional editable mode.
+`scope` is Nix build context:
 
-This split matters because one Python project can be built for multiple systems or Python versions.
+- nixpkgs package set
+- Python interpreter
+- dependency selection
+- build-system source preference
+- pyproject.nix overlays
+- optional editable mode
+- environment and stdenv
 
-## Helpers
+Split lets one locked project be reused across systems, Python versions, overlays, and output types.
 
-Scope helpers are shortcuts over the same package set:
+## Build pipeline
 
-| Helper | Output |
+At a high level:
+
+1. `uv` writes `uv.lock`.
+2. `uv2nix` loads workspace metadata and dependency selections.
+3. uvloom composes build-system overlay, workspace overlay, and user overlays.
+4. pyproject.nix builds a `pythonSet`.
+5. uvloom helpers turn that package set into flake outputs.
+
+Helpers all use the same composed package set unless you ask for a different dependency selection.
+
+## Helpers versus package set
+
+Use helpers for normal flake outputs:
+
+| Helper | Use for |
 | --- | --- |
-| `mkApplication` | Console-script package. |
-| `mkVenv` | Virtual environment. |
-| `mkPytestCheck` | pytest check derivation. |
-| `mkEditableVenv` | Development environment using checkout source. |
+| `mkApplication` | Console-script wrappers under `packages`. |
+| `mkVenv` | Virtual environments under `packages` or shells. |
+| `mkPytestCheck` | pytest derivations under `checks`. |
+| `mkEditableVenv` | development shells using working-tree source. |
+| `scope.nixpkgs.package` | one nixpkgs-compatible package export. |
 
-Use helpers for normal flakes. Use `scope.pythonSet` when a package needs override work.
+Use `scope.pythonSet` when a helper is too high-level. Common reasons:
+
+- inspect generated package attrs
+- write custom derivation
+- override package internals
+- call pyproject.nix APIs directly
 
 ## Dependencies
 
-`uv.lock` stays the dependency source.
+`uv.lock` remains dependency source. uvloom does not invent dependency resolution.
 
-By default, uvloom uses the default workspace dependency set from `uv2nix`. Pass another `project.workspace.deps.*` value when you need extra groups, such as test or development dependencies.
+Default project scopes use:
+
+```nix
+project.workspace.deps.default
+```
+
+Pass another dependency selection when output needs extras or groups:
+
+```nix
+scope.mkVenv {
+  name = "my-project-dev-env";
+  dependencies = project.workspace.deps.all;
+}
+```
+
+`mkPytestCheck` defaults differently: it builds a test scope with dependency selection equivalent to:
+
+```nix
+{ my-project = [ "test" ]; }
+```
+
+Override `groups` for common cases, or `dependencies` for full control.
+
+## Package inference
+
+Several helpers accept `package ? null`.
+
+Omitting `package` works only when workspace has exactly one local package. In multi-package workspaces, pass package names explicitly:
+
+```nix
+scope.mkApplication { package = "my-app"; }
+scope.mkPytestCheck { package = "my-library"; }
+```
+
+This avoids accidental builds when workspace membership changes.
 
 ## Editable mode
 
-Normal Nix builds use a store copy of your source. After editing source, rebuild to see changes.
+Normal Nix package builds copy source into the store. After changing source files, rebuild to see changes.
 
-Editable mode points selected local packages at your checkout while dependencies stay Nix-built. Use it in `devShells`, not release packages.
+Editable mode adds a pyproject.nix editable overlay so selected workspace members import from your checkout instead:
+
+```nix
+editable = {
+  root = "$PWD";
+  members = [ "my-project" ];
+};
+```
+
+Use editable mode for dev shells, REPLs, language servers, and fast test loops. Avoid using it for release packages because it intentionally points at a mutable working tree.
+
+`root` is a string on purpose. `"$PWD"` is resolved by the shell at use time, so the environment follows the checkout path instead of a Nix store path.
+
+## Overlay layers
+
+uvloom uses two different overlay concepts. Mixing them up is the most common advanced-use mistake.
+
+### pyproject.nix package-set overlays
+
+Passed to `project.forPython { overlays = [ ... ]; }` or `project.nixpkgs.pythonPackagesExtension { overlays = [ ... ]; }`.
+
+They run inside uv2nix/pyproject.nix composition:
+
+```nix
+overlays = [
+  (final: prev: {
+    my-project = prev.my-project.overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.pkg-config ];
+    });
+  })
+];
+```
+
+Use these to fix generated Python package builds.
+
+### nixpkgs flake overlays
+
+Returned by `project.nixpkgs.overlay`. They run at nixpkgs level and append a Python package-set extension to `pythonPackagesExtensions`:
+
+```nix
+overlays.default = project.nixpkgs.overlay {
+  packages = [ "my-project" ];
+};
+```
+
+Use these when consumers should access your package through nixpkgs conventions.
+
+## Exporting to nixpkgs style
+
+uv2nix builds environments from a lockfile-oriented package set. nixpkgs users often expect `python.withPackages` and `pythonPackages`.
+
+uvloom export adapters bridge those worlds:
+
+- `project.nixpkgs.pythonPackagesExtension` creates a Python package-set extension.
+- `project.nixpkgs.overlay` appends that extension in a flake overlay.
+- `scope.nixpkgs.package` exports and returns one package directly.
+
+Export only packages consumers need. If a locked dependency is absent from nixpkgs or must use lockfile version, include it in `packages` or `exportPackages` explicitly.
+
+After export, dependency resolution follows nixpkgs Python package-set rules. That is useful for integration, but different from uv2nix virtualenv resolution.
+
+## Script support
+
+`loadScript` is the script-shaped sibling of `loadProject`.
+
+Use it for PEP 723 inline-metadata scripts with `uv` script locks:
+
+```nix
+script = uvloom.lib.loadScript { script = ./scripts/tool.py; };
+scope = script.forPython { inherit pkgs; };
+packages.${system}.tool = scope.mkApplication { };
+```
+
+Use `loadProject` for packages/workspaces. Use `loadScript` for single-file scripts.
+
+## When to use uv2nix directly
+
+Use uvloom when your flake matches these patterns:
+
+- build app wrapper
+- build virtualenv
+- run pytest
+- make editable dev shell
+- export locked package to nixpkgs style
+- add focused package-set overlays
+
+Use upstream `uv2nix` directly when you need to replace the composition pipeline itself or depend on upstream workspace internals beyond uvloom's documented escape hatches.
 
 ## Escape hatches
 
-Use lower layers when needed:
+Stable seams:
 
-- `project.workspace`: upstream `uv2nix` workspace.
-- `scope.pythonSet`: pyproject.nix package set.
-- `scope.editablePythonSet`: editable package set.
-- `scope.nixpkgs.*`: `python.withPackages` and nixpkgs-style exports.
+- `project.workspace`: raw upstream `uv2nix` workspace.
+- `scope.pythonSet`: final non-editable pyproject.nix package set.
+- `scope.editablePythonSet`: final editable package set when editable mode is enabled.
+- `project.nixpkgs.pythonPackagesExtension`: package-set export adapter.
+- `project.nixpkgs.overlay`: flake-overlay export convenience.
+- `scope.nixpkgs.package`: direct one-package export.
 
-Need more control than that? Use `uv2nix` directly.
+Anything deeper belongs to uv2nix or pyproject.nix. uvloom keeps those layers reachable instead of wrapping every possible upstream API.

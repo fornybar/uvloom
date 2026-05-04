@@ -1,6 +1,6 @@
 {
   lib,
-  root ? ../templates,
+  root ? ../../templates,
 }:
 let
   dirs = lib.pipe (builtins.readDir root) [

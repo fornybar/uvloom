@@ -1,33 +1,38 @@
-# Documentation
+# uvloom documentation
 
-uvloom is a small helper layer for `uv2nix`. Pick the page that matches what you need now.
+uvloom turns a `uv`-locked Python project into Nix outputs with less boilerplate. You still own the flake: choose nixpkgs, Python, dependency groups, overlays, packages, checks, shells, and exports.
 
-| Need | Read |
-| --- | --- |
-| First working project | [Tutorial](tutorial.md) |
-| Copy a task recipe | [How-to guides](how-to.md) |
-| Check function names and arguments | [Reference](reference.md) |
-| Understand project/scope/editable mode | [Explanation](explanation.md) |
-| Read one complete guide | [Full guide](intro.md) |
+## Quick path
 
-## Short path
+```sh
+mkdir my-project
+cd my-project
+nix flake init -t github:fornybar/uvloom#simple
+uv lock
+nix build
+```
 
-1. Start with [Tutorial](tutorial.md).
-2. Copy recipes from [How-to guides](how-to.md).
-3. Use [Reference](reference.md) when you need exact API shape.
-
-## Main idea
-
-Most projects use this pattern:
+Then open `flake.nix`. Most uvloom flakes use this shape:
 
 ```nix
 project = uvloom.lib.loadProject { root = ./.; };
-scope = project.forPython { inherit pkgs; interpreter = pkgs.python312; };
+
+scope = project.forPython {
+  inherit pkgs;
+  interpreter = pkgs.python312;
+};
 ```
 
-Then expose helpers through your normal flake outputs:
+Use scope helpers in normal flake outputs:
 
 ```nix
 packages.${system}.default = scope.mkApplication { package = "my-project"; };
 checks.${system}.pytest = scope.mkPytestCheck { package = "my-project"; };
 ```
+
+## Mental model
+
+1. `uv.lock` records Python dependencies.
+2. `loadProject` reads `pyproject.toml` and `uv.lock` once.
+3. `forPython` binds that project to one nixpkgs package set and interpreter.
+4. `scope.*` helpers build packages, environments, checks, and exports.
