@@ -248,10 +248,15 @@ let
 in
 {
   overlays.default = project.nixpkgs.overlay {
-    packages = [ "my-project" ];
+    packages = [
+      "my-project"
+      "locked-dependency"
+    ];
   };
 }
 ```
+
+List dependencies explicitly when they are missing from nixpkgs or need lockfile versions. This avoids overriding the whole dependency closure and reduces conflicts with consumers' nixpkgs package set.
 
 Consumers can then use normal nixpkgs Python package sets:
 

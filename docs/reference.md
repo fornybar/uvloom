@@ -133,6 +133,20 @@ python = pkgs.python312.override {
 };
 ```
 
+List dependencies explicitly when they are missing from nixpkgs or need lockfile versions.
+
+```nix
+python = pkgs.python312.override {
+  self = python;
+  packageOverrides = scope.nixpkgs.pythonPackagesExtension {
+    packages = [
+      "my-project"
+      "locked-dependency"
+    ];
+  };
+};
+```
+
 ## `scope.nixpkgs.package`
 
 Return one nixpkgs-compatible package directly.
