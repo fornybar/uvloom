@@ -126,7 +126,7 @@ editable = {
 
 ## Add a package override
 
-Use overlays when a Python package needs extra inputs or attribute changes.
+Use pyproject.nix package-set overlays when a Python package needs extra inputs or attribute changes. These are uv2nix-style `overrideScope` overlays, not nixpkgs flake overlays.
 
 ```nix
 scope = project.forPython {
@@ -155,6 +155,40 @@ in
     packages = [ "my-project" ];
   };
 }
+```
+
+If export-time customizations need nixpkgs `final`, write the nixpkgs overlay explicitly and call `project.nixpkgs.pythonPackagesExtension` inside it:
+
+```nix
+overlays.default = final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension {
+      packages = [ "my-project" ];
+      overlays = [
+        (config.patches.my-project { pkgs = final; })
+      ];
+    })
+  ];
+};
+```
+
+If a customization must run after uvloom exports packages to nixpkgs style, append another Python package-set extension:
+
+```nix
+overlays.default = final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension {
+      packages = [ "my-project" ];
+    })
+    (python-final: python-prev: {
+      my-project = python-prev.my-project.overridePythonAttrs (old: {
+        propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [
+          python-final.numpy
+        ];
+      });
+    })
+  ];
+};
 ```
 
 Consumer:

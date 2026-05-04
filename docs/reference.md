@@ -38,7 +38,7 @@ Common arguments:
 | `interpreter` | Python interpreter, such as `pkgs.python312`. |
 | `sourcePreference` | Prefer `wheel` or `sdist` where upstream supports it. |
 | `dependencies` | Dependency selection. Defaults to `project.workspace.deps.default`. |
-| `overlays` | Extra pyproject.nix package-set overlays. |
+| `overlays` | Extra pyproject.nix package-set overlays. These are uv2nix-style `overrideScope` overlays, not nixpkgs flake overlays. |
 | `editable` | Editable working-tree config, usually `{ root = "$PWD"; members = [ "my-project" ]; }`. |
 | `environ` | Environment passed to upstream workspace overlay. |
 | `stdenv` | stdenv used by pyproject.nix builds. |
@@ -128,6 +128,31 @@ Use for package overrides, custom derivations, and advanced interop.
 
 Final editable package set. Present only when `editable` is configured.
 
+## `project.nixpkgs.overlay`
+
+Create a nixpkgs flake overlay that appends uvloom's export adapter to `pythonPackagesExtensions`.
+
+```nix
+overlays.default = project.nixpkgs.overlay {
+  packages = [ "my-project" ];
+};
+```
+
+This helper is for the common case. If you need nixpkgs `final` while building pyproject overlays, write the equivalent overlay explicitly:
+
+```nix
+overlays.default = final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension {
+      packages = [ "my-project" ];
+      overlays = [
+        (config.patches.my-project { pkgs = final; })
+      ];
+    })
+  ];
+};
+```
+
 ## `scope.nixpkgs.pythonPackagesExtension`
 
 Create nixpkgs-style Python package extension.
@@ -140,6 +165,18 @@ python = pkgs.python312.override {
   };
 };
 ```
+
+`project.nixpkgs.overlay args` is the flake-overlay convenience form of appending `project.nixpkgs.pythonPackagesExtension args` to `pythonPackagesExtensions`:
+
+```nix
+final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension args)
+  ];
+}
+```
+
+Use this explicit form when you need nixpkgs `final` in pyproject overlays or when you need to compose another nixpkgs Python extension after uvloom's export.
 
 List dependencies explicitly when they are missing from nixpkgs or need lockfile versions.
 

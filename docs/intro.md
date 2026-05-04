@@ -221,7 +221,7 @@ packages.dev = scope.mkEditableVenv {
 
 ### Add overlays
 
-`forPython` accepts extra package-set overlays after uvloom's build-system and workspace overlays:
+`forPython` accepts extra pyproject.nix package-set overlays after uvloom's build-system and workspace overlays. These are the same kind of overlays uv2nix passes to `pythonSet.overrideScope`; they are not nixpkgs flake overlays.
 
 ```nix
 scope = project.forPython {
@@ -235,6 +235,8 @@ scope = project.forPython {
   ];
 };
 ```
+
+Capture `pkgs` from the surrounding scope when an overlay needs nixpkgs packages. This matches uv2nix's normal pattern.
 
 ### Export generated packages to nixpkgs-style Python sets
 
@@ -255,6 +257,23 @@ in
   };
 }
 ```
+
+`project.nixpkgs.overlay` is a convenience wrapper. It is equivalent to writing:
+
+```nix
+overlays.default = final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension {
+      packages = [
+        "my-project"
+        "locked-dependency"
+      ];
+    })
+  ];
+};
+```
+
+Use the explicit form when package-set overlays need nixpkgs `final` or when you need to append another nixpkgs Python extension after uvloom's export.
 
 List dependencies explicitly when they are missing from nixpkgs or need lockfile versions. This avoids overriding the whole dependency closure and reduces conflicts with consumers' nixpkgs package set.
 
@@ -306,6 +325,34 @@ overlays.default = project.nixpkgs.overlay {
 ```
 
 The export adapter converts uv2nix packages into nixpkgs-compatible Python packages. This preserves normal nixpkgs Python propagation and `withPackages` behavior, but dependency resolution after export follows nixpkgs package-set rules instead of uv2nix virtualenv resolution.
+
+There are two override layers when exporting:
+
+1. `overlays` passed to `project.nixpkgs.pythonPackagesExtension` are pyproject.nix package-set overlays. They run before export, inside uv2nix/pyproject.nix composition.
+2. Extra entries appended to `pythonPackagesExtensions` are nixpkgs Python package-set extensions. They run after export, against nixpkgs-style Python packages.
+
+Example with both layers:
+
+```nix
+overlays.default = final: prev: {
+  pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
+    (project.nixpkgs.pythonPackagesExtension {
+      packages = [ "my-project" ];
+      overlays = [
+        (config.patches.my-project { pkgs = final; })
+      ];
+    })
+
+    (python-final: python-prev: {
+      my-project = python-prev.my-project.overridePythonAttrs (old: {
+        propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [
+          python-final.numpy
+        ];
+      });
+    })
+  ];
+};
+```
 
 ## Advanced escape hatches
 

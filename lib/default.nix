@@ -117,9 +117,9 @@ in
             environ ? { },
             stdenv ? null,
           }:
-          pythonFinal: pythonPrev:
+          python-final: python-prev:
           let
-            pkgs = pythonPrev.pkgs;
+            pkgs = python-prev.pkgs;
             scope = forPython {
               inherit
                 pkgs
@@ -128,11 +128,11 @@ in
                 overlays
                 environ
                 ;
-              interpreter = pythonPrev.python;
+              interpreter = python-prev.python;
               stdenv = if stdenv == null then pkgs.stdenv else stdenv;
             };
           in
-          (scope.nixpkgs.pythonPackagesExtension { inherit packages; }) pythonFinal pythonPrev;
+          (scope.nixpkgs.pythonPackagesExtension { inherit packages; }) python-final python-prev;
 
         overlay = args: final: prev: {
           pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
