@@ -189,7 +189,6 @@ let
       interpreter = resolvedInterpreter;
 
       nixpkgs = {
-        pythonPackagesExtension = mkPythonPackagesExtension;
         package = mkNixpkgsPackage;
       };
     }

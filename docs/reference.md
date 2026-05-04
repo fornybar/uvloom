@@ -153,14 +153,14 @@ overlays.default = final: prev: {
 };
 ```
 
-## `scope.nixpkgs.pythonPackagesExtension`
+## `project.nixpkgs.pythonPackagesExtension`
 
 Create nixpkgs-style Python package extension.
 
 ```nix
 python = pkgs.python312.override {
   self = python;
-  packageOverrides = scope.nixpkgs.pythonPackagesExtension {
+  packageOverrides = project.nixpkgs.pythonPackagesExtension {
     packages = [ "my-project" ];
   };
 };
@@ -183,7 +183,7 @@ List dependencies explicitly when they are missing from nixpkgs or need lockfile
 ```nix
 python = pkgs.python312.override {
   self = python;
-  packageOverrides = scope.nixpkgs.pythonPackagesExtension {
+  packageOverrides = project.nixpkgs.pythonPackagesExtension {
     packages = [
       "my-project"
       "locked-dependency"

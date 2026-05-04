@@ -292,12 +292,12 @@ devShells.default = pkgs.mkShell {
 };
 ```
 
-When only one concrete Python interpreter/package set is needed, export a Python package-set extension from a scope:
+When only one concrete Python interpreter/package set is needed, either use the project-level Python package-set extension:
 
 ```nix
 python = pkgs.python312.override {
   self = python;
-  packageOverrides = scope.nixpkgs.pythonPackagesExtension {
+  packageOverrides = project.nixpkgs.pythonPackagesExtension {
     packages = [ "my-project" ];
   };
 };
@@ -305,7 +305,7 @@ python = pkgs.python312.override {
 packages.nixpkgs-style = python.pkgs.my-project;
 ```
 
-Or ask uvloom for one nixpkgs-compatible package directly:
+Or ask uvloom for one nixpkgs-compatible package directly from a scope:
 
 ```nix
 packages.nixpkgs-style = scope.nixpkgs.package {
@@ -361,6 +361,7 @@ uvloom keeps common workflows on helpers such as `scope.mkVenv`, `scope.mkApplic
 - `project.workspace` is the raw upstream `uv2nix` workspace. Use it for narrow interop such as `project.workspace.deps.*`, `mkPyprojectOverlay`, or `mkEditablePyprojectOverlay`. uvloom guarantees this attr is present, but does not wrap or stabilize every upstream workspace detail.
 - `scope.pythonSet` is the final pyproject.nix package set used by non-editable helpers after build-system, workspace, and user overlays are composed.
 - `scope.editablePythonSet` is present only when `editable` is configured and is the final editable package set used by `scope.mkEditableVenv`.
-- `scope.nixpkgs.pythonPackagesExtension` and `scope.nixpkgs.package` are the supported nixpkgs-style export adapters.
+- `project.nixpkgs.pythonPackagesExtension` and `project.nixpkgs.overlay` are the supported nixpkgs package-set export adapters.
+- `scope.nixpkgs.package` returns one nixpkgs-compatible package directly from an existing scope.
 
 If you need to replace uvloom's composition pipeline wholesale, add `uv2nix`, `pyproject-nix`, and `build-system-pkgs` as explicit inputs and compose upstream modules directly.

@@ -30,13 +30,13 @@ let
     };
   };
 
-  pythonPackagesExtension = scope.nixpkgs.pythonPackagesExtension {
+  projectPythonPackagesExtension = project.nixpkgs.pythonPackagesExtension {
     packages = [ "smiley-plot" ];
   };
 
-  pythonWithExtension = pkgs.python312.override {
-    self = pythonWithExtension;
-    packageOverrides = pythonPackagesExtension;
+  pythonWithProjectExtension = pkgs.python312.override {
+    self = pythonWithProjectExtension;
+    packageOverrides = projectPythonPackagesExtension;
   };
 
   pkgsWithOverlay = pkgs.extend (
@@ -136,7 +136,7 @@ assert scope ? interpreter;
 assert pkgs.lib.getExe scope.interpreter == pkgs.python312.interpreter;
 assert scope ? pythonSet;
 assert scope ? nixpkgs;
-assert scope.nixpkgs ? pythonPackagesExtension;
+assert !(scope.nixpkgs ? pythonPackagesExtension);
 assert scope.nixpkgs ? package;
 assert scope ? mkVenv;
 assert scope ? mkApplication;
@@ -164,7 +164,7 @@ assert builtins.isAttrs defaultPytestCheck;
 assert defaultPytestCheck.name == "smiley-plot-pytest";
 assert builtins.isAttrs customPytestCheck;
 assert customPytestCheck.name == "custom-smiley-pytest";
-assert pythonWithExtension.pkgs."smiley-plot".version == "0.1.0";
+assert pythonWithProjectExtension.pkgs."smiley-plot".version == "0.1.0";
 assert pkgsWithOverlay.python312Packages."smiley-plot".version == "0.1.0";
 assert (scope.nixpkgs.package { package = "smiley-plot"; }).version == "0.1.0";
 assert (scope.nixpkgs.package { }).version == "0.1.0";

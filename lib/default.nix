@@ -78,7 +78,6 @@ in
 
     - `interpreter`: The resolved Python interpreter derivation. Use `lib.getExe scope.interpreter` for the executable path, for example in `UV_PYTHON`.
     - `pythonSet`: The underlying pyproject.nix package set after build-system, workspace, and user overlays. This is an advanced seam for package-set-level interop.
-    - `nixpkgs.pythonPackagesExtension { packages ? localPackages }`: Export selected generated packages as a nixpkgs Python package-set extension.
     - `nixpkgs.package { package ? null, exportPackages ? [ resolved package ] }`: Build one generated package through nixpkgs `buildPythonPackage` compatibility.
     - `mkVenv { name, dependencies ? workspace.deps.default }`: Build a virtual environment from a dependency selection.
     - `mkApplication { package ? null, venv ? null, pname ? null, version ? null }`: Build an application wrapper for a local package. `package` can be omitted for single-package workspaces.
@@ -132,7 +131,12 @@ in
               stdenv = if stdenv == null then pkgs.stdenv else stdenv;
             };
           in
-          (scope.nixpkgs.pythonPackagesExtension { inherit packages; }) python-final python-prev;
+          ((pkgs.callPackage pyproject-nix.build.hacks { }).toNixpkgs {
+            inherit packages;
+            inherit (scope) pythonSet;
+          })
+            python-final
+            python-prev;
 
         overlay = args: final: prev: {
           pythonPackagesExtensions = (prev.pythonPackagesExtensions or [ ]) ++ [
