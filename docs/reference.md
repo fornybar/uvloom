@@ -299,6 +299,7 @@ Script scope helpers:
 | `scope.mkVenv { }` | Build script virtual environment. |
 | `scope.renderScript { }` | Render script with venv shebang. |
 | `scope.mkApplication { }` | Build runnable script application. |
+| `scope.mkEditableApplication { path ? basename, root ? "$PWD", venv ? mkVenv { } }` | Build dev-shell command that runs the live working-tree script with locked deps. |
 
 ### `uvloom.lib.loadScripts`
 

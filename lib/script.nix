@@ -24,6 +24,8 @@ let
       metadataScript = pyproject-nix.lib.scripts.loadScript {
         inherit script;
       };
+
+      scriptPath = script;
     in
     rec {
       inherit (loadedScript) name config;
@@ -85,6 +87,22 @@ let
             pkgs.writeScript name (renderScript {
               inherit venv;
             });
+
+          mkEditableApplication =
+            {
+              name ? loadedScript.name,
+              root ? "$PWD",
+              path ? baseNameOf scriptPath,
+              venv ? mkVenv { },
+            }:
+            pkgs.writeShellApplication {
+              inherit name;
+              runtimeInputs = [ venv ];
+              text = ''
+                script_path=${lib.escapeShellArg path}
+                exec python "${root}/$script_path" "$@"
+              '';
+            };
         in
         {
           inherit
@@ -92,6 +110,7 @@ let
             mkVenv
             renderScript
             mkApplication
+            mkEditableApplication
             ;
         };
     };

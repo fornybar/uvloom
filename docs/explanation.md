@@ -179,6 +179,8 @@ scope = script.forPython { inherit pkgs; };
 packages.${system}.tool = scope.mkApplication { };
 ```
 
+For development, put `scope.mkVenv { }` in a dev shell and run `python scripts/tool.py`. That uses locked deps while reading the live working-tree script. If you want a command alias, put `scope.mkEditableApplication { path = "scripts/tool.py"; }` in the shell; it includes a venv by default.
+
 Use `loadProject` for packages/workspaces. Use `loadScript` for single-file scripts.
 
 ## When to use uv2nix directly

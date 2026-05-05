@@ -203,6 +203,8 @@ in
     - `mkVenv { }`: Build the script virtual environment.
     - `renderScript { venv ? mkVenv { } }`: Render script with a venv shebang.
     - `mkApplication { name ? scriptName, venv ? mkVenv { } }`: Build a runnable script application.
+    - `mkEditableApplication { name ? scriptName, root ? "$PWD", path ? basename, venv ? mkVenv { } }`:
+      Build a dev-shell command that runs the live working-tree script with locked deps.
 
     # Example
 

@@ -184,9 +184,13 @@ assert builtins.isString sdistRenderedScript;
 assert scriptScope ? mkVenv;
 assert scriptScope ? renderScript;
 assert scriptScope ? mkApplication;
+assert scriptScope ? mkEditableApplication;
 assert builtins.isAttrs (scriptScope.mkVenv { });
 assert builtins.isString (scriptScope.renderScript { });
 assert builtins.isAttrs (scriptScope.mkApplication { });
+assert builtins.isAttrs (
+  scriptScope.mkEditableApplication { path = "test/fixtures/scripts/example.py"; }
+);
 assert scripts ? example;
 assert scripts.example.name == "example";
 true

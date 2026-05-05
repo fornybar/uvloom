@@ -78,5 +78,9 @@ in
 
   script-application = scriptScope.mkApplication { };
 
+  script-editable-application = scriptScope.mkEditableApplication {
+    path = "test/fixtures/scripts/example.py";
+  };
+
   script-sdist-application = sdistScriptScope.mkApplication { };
 }

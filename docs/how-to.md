@@ -357,6 +357,40 @@ scope = script.forPython {
 packages.${system}.progress = scope.mkApplication { };
 ```
 
+For development, put the script dependency venv in a shell and run the working-tree file with Python:
+
+```nix
+devShells.${system}.default = pkgs.mkShell {
+  packages = [
+    (scope.mkVenv { })
+  ];
+};
+```
+
+```sh
+nix develop
+python scripts/progress.py
+```
+
+Script edits are picked up on the next run. Re-enter the shell only when dependencies, lock file, or interpreter change.
+
+If you want a command alias in the dev shell, add an editable application. `path` is relative to `root`; `root = "$PWD"` keeps the wrapper pointed at the live checkout:
+
+```nix
+devShells.${system}.default = pkgs.mkShell {
+  packages = [
+    (scope.mkEditableApplication { path = "scripts/progress.py"; })
+  ];
+};
+```
+
+```sh
+nix develop
+progress
+```
+
+`mkEditableApplication` includes a script dependency venv by default. Add `scope.mkVenv { }` separately only when you also want to run the script directly with `python scripts/progress.py`.
+
 `loadScript` expects a uv script lock at `./scripts/progress.py.lock` by default. Create or refresh it with uv:
 
 ```sh

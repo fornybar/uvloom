@@ -228,6 +228,14 @@ scope = script.forPython {
 packages.${system}.tool = scope.mkApplication { };
 ```
 
+For live script development, add `scope.mkVenv { }` to a dev shell and run:
+
+```sh
+python scripts/tool.py
+```
+
+Or add `scope.mkEditableApplication { path = "scripts/tool.py"; }` to the shell and run `tool`. It includes a venv by default.
+
 Create script lock with:
 
 ```sh
