@@ -16,3 +16,10 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
       - run: nix flake check
+      - name: Check examples against workspace uvloom
+        run: |
+          for example in examples/*; do
+            if [ -f "$example/flake.nix" ]; then
+              nix flake check "./$example" --override-input uvloom "path:$PWD" --no-write-lock-file
+            fi
+          done
