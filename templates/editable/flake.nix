@@ -27,16 +27,18 @@
           scope = project.forPython {
             inherit pkgs;
             interpreter = pkgs.python312;
-            editable = {
-              root = "$PWD";
-              members = [ "smiley-plot" ];
-            };
           };
         in
         {
           default = pkgs.mkShell {
             packages = [
-              (scope.mkEditableVenv { name = "smiley-plot-dev-env"; })
+              (scope.mkVenv {
+                name = "smiley-plot-dev-env";
+                editable = {
+                  root = "$PWD";
+                  members = [ "smiley-plot" ];
+                };
+              })
               pkgs.uv
             ];
 

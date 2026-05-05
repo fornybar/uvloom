@@ -47,16 +47,27 @@ assert fails (
   }).pythonSet
 );
 assert fails (
-  (project.forPython {
-    inherit pkgs;
-    interpreter = pkgs.python312;
+  scope.mkVenv {
+    name = "bad-editable-env";
     editable.root = ./fixtures/smiley-plot;
-  }).editablePythonSet
+  }
 );
 assert fails (
   (badPythonProject.forPython {
     inherit pkgs;
   }).pythonSet
+);
+assert fails (
+  scope.mkVenv {
+    name = "bad-editable-kind-env";
+    editable = true;
+  }
+);
+assert fails (
+  scope.mkVenv {
+    name = "missing-editable-root-env";
+    editable = { };
+  }
 );
 assert fails (scope.mkApplication { package = "missing"; });
 assert fails (scope.mkPytestCheck { package = "missing"; });

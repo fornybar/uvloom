@@ -50,7 +50,7 @@ let
           if template == "simple" then
             "`packages.default = scope.mkApplication { ...; }`"
           else if template == "editable" then
-            "`devShells.default` with `scope.mkEditableVenv`"
+            "`devShells.default` with `scope.mkVenv { editable = ...; }`"
           else if template == "pytest" then
             "`checks.pytest = scope.mkPytestCheck { ...; }`"
           else
@@ -59,7 +59,7 @@ let
           if template == "simple" then
             "Add `mkPytestCheck` or switch to the `pytest` template when tests should run in `nix flake check`."
           else if template == "editable" then
-            "Use `nix develop`, keep `UV_PYTHON_DOWNLOADS = \"never\"`, and add dependency groups through `mkEditableVenv { dependencies = ...; }` when needed."
+            "Use `nix develop`, keep `UV_PYTHON_DOWNLOADS = \"never\"`, and add dependency groups through `mkVenv { editable = { ...; }; dependencies = ...; }` when needed."
           else if template == "pytest" then
             "Add package outputs with `scope.mkApplication` when you also need a runnable CLI."
           else

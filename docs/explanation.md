@@ -26,7 +26,6 @@ scope = project.forPython {
 - dependency selection
 - build-system source preference
 - pyproject.nix overlays
-- optional editable mode
 - environment and stdenv
 
 Split lets one locked project be reused across systems, Python versions, overlays, and output types.
@@ -50,9 +49,8 @@ Use helpers for normal flake outputs:
 | Helper | Use for |
 | --- | --- |
 | `mkApplication` | Console-script wrappers under `packages`. |
-| `mkVenv` | Virtual environments under `packages` or shells. |
+| `mkVenv` | Virtual environments under `packages` or shells, including editable development envs. |
 | `mkPytestCheck` | pytest derivations under `checks`. |
-| `mkEditableVenv` | development shells using working-tree source. |
 | `scope.nixpkgs.package` | one nixpkgs-compatible package export. |
 
 Use `scope.pythonSet` when a helper is too high-level. Common reasons:
@@ -106,13 +104,16 @@ This avoids accidental builds when workspace membership changes.
 
 Normal Nix package builds copy source into the store. After changing source files, rebuild to see changes.
 
-Editable mode adds a pyproject.nix editable overlay so selected workspace members import from your checkout instead:
+Editable mode on `mkVenv` adds a pyproject.nix editable overlay so selected workspace members import from your checkout instead:
 
 ```nix
-editable = {
-  root = "$PWD";
-  members = [ "my-project" ];
-};
+scope.mkVenv {
+  name = "my-project-dev-env";
+  editable = {
+    root = "$PWD";
+    members = [ "my-project" ];
+  };
+}
 ```
 
 Use editable mode for dev shells, REPLs, language servers, and fast test loops. Avoid using it for release packages because it intentionally points at a mutable working tree.
@@ -201,8 +202,7 @@ Use upstream `uv2nix` directly when you need to replace the composition pipeline
 Stable seams:
 
 - `project.workspace`: raw upstream `uv2nix` workspace.
-- `scope.pythonSet`: final non-editable pyproject.nix package set.
-- `scope.editablePythonSet`: final editable package set when editable mode is enabled.
+- `scope.pythonSet`: final pyproject.nix package set.
 - `project.nixpkgs.pythonPackagesExtension`: package-set export adapter.
 - `project.nixpkgs.overlay`: flake-overlay export convenience.
 - `scope.nixpkgs.package`: direct one-package export.

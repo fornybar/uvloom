@@ -148,25 +148,18 @@ nix flake check
 
 Use editable mode when imports and console scripts should see working-tree source without rebuilding package derivations after every edit.
 
-Enable editable mode on the scope:
-
-```nix
-scope = project.forPython {
-  inherit pkgs;
-  interpreter = pkgs.python312;
-  editable = {
-    root = "$PWD";
-    members = [ "my-project" ];
-  };
-};
-```
-
-Expose editable venv in a dev shell:
+Expose an editable venv in a dev shell:
 
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkEditableVenv { name = "my-project-dev-env"; })
+    (scope.mkVenv {
+      name = "my-project-dev-env";
+      editable = {
+        root = "$PWD";
+        members = [ "my-project" ];
+      };
+    })
     pkgs.uv
   ];
 
@@ -183,7 +176,7 @@ Enter shell:
 nix develop
 ```
 
-For multi-package workspaces, list editable local packages explicitly:
+Editable config is explicit. For multi-package workspaces, list editable local packages explicitly:
 
 ```nix
 editable = {
@@ -195,8 +188,12 @@ editable = {
 Include dev/test dependencies in editable environment:
 
 ```nix
-(scope.mkEditableVenv {
+(scope.mkVenv {
   name = "my-project-dev-env";
+  editable = {
+    root = "$PWD";
+    members = [ "my-project" ];
+  };
   dependencies = project.workspace.deps.all;
 })
 ```
@@ -410,7 +407,7 @@ progressScope = scripts.progress.forPython { inherit pkgs; };
 | --- | --- | --- |
 | `uvloom.forPython: unknown sourcePreference ...` | `sourcePreference` is not supported by build-system overlays. | Use `"wheel"` or `"sdist"`. |
 | `uvloom.forPython: overlays must be a list` | `overlays` got an attrset or function directly. | Wrap overlays in `[ ... ]`. |
-| `uvloom.forPython: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$PWD";`. |
+| `uvloom.mkVenv: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$PWD";`. |
 | `uvloom.mkApplication: could not infer package; candidates: ...` | Workspace has multiple local packages. | Pass `package = "..."`. |
 | `uvloom.mkPytestCheck: package ... not found` | Package name does not match a local package. | Check `[project].name` and workspace members. |
 | `could not infer interpreter for requires-python ...` | No nixpkgs Python matches metadata. | Pass a compatible `interpreter` explicitly or change `requires-python`. |
@@ -421,7 +418,6 @@ Supported escape hatches:
 
 - `project.workspace`: upstream `uv2nix` workspace.
 - `scope.pythonSet`: final pyproject.nix package set.
-- `scope.editablePythonSet`: editable package set, present only when editable mode is enabled.
 - `project.nixpkgs.pythonPackagesExtension`: package-set export adapter.
 - `project.nixpkgs.overlay`: flake-overlay convenience wrapper.
 - `scope.nixpkgs.package`: one-package nixpkgs-style export.

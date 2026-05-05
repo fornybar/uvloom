@@ -24,7 +24,6 @@ let
       sourcePreference ? "wheel",
       dependencies ? workspace.deps.default,
       overlays ? [ ],
-      editable ? null,
       environ ? { },
       stdenv ? pkgs.stdenv,
     }:
@@ -51,33 +50,53 @@ let
 
       inherit (pythonSetCore) checkedOverlays resolvedInterpreter pythonSet;
 
-      checkedEditable =
-        if editable == null || editable ? root && builtins.isString editable.root then
-          editable
+      normalizeEditable =
+        where: editable:
+        if editable == false then
+          null
+        else if builtins.isAttrs editable then
+          (
+            {
+              root = if editable ? root then editable.root else errors.fail where "editable.root is required";
+            }
+            // lib.optionalAttrs (editable ? members) {
+              members = editable.members;
+            }
+          )
         else
-          errors.fail "forPython" "editable.root must be a string";
+          errors.fail where "editable must be false or an attribute set";
+
+      mkEditablePythonSet =
+        where: editable:
+        let
+          editableConfig = normalizeEditable where editable;
+          checkedRoot =
+            if builtins.isString editableConfig.root then
+              editableConfig.root
+            else
+              errors.fail where "editable.root must be a string";
+        in
+        pythonSet.overrideScope (
+          workspace.mkEditablePyprojectOverlay (
+            {
+              root = checkedRoot;
+            }
+            // lib.optionalAttrs (editableConfig ? members) {
+              members = editableConfig.members;
+            }
+          )
+        );
 
       mkVenv =
         {
           name,
           dependencies ? workspace.deps.default,
+          editable ? false,
         }:
-        pythonSet.mkVirtualEnv name dependencies;
-
-      editablePythonSet =
-        if checkedEditable == null then
-          null
-        else
-          pythonSet.overrideScope (
-            workspace.mkEditablePyprojectOverlay (
-              {
-                root = checkedEditable.root;
-              }
-              // lib.optionalAttrs (checkedEditable ? members) {
-                members = checkedEditable.members;
-              }
-            )
-          );
+        let
+          venvPythonSet = if editable == false then pythonSet else mkEditablePythonSet "mkVenv" editable;
+        in
+        venvPythonSet.mkVirtualEnv name dependencies;
 
       hacks = pkgs.callPackage pyproject-nix.build.hacks { };
 
@@ -191,16 +210,6 @@ let
       nixpkgs = {
         package = mkNixpkgsPackage;
       };
-    }
-    // lib.optionalAttrs (checkedEditable != null) {
-      inherit editablePythonSet;
-
-      mkEditableVenv =
-        {
-          name,
-          dependencies ? workspace.deps.default,
-        }:
-        editablePythonSet.mkVirtualEnv name dependencies;
     };
 in
 makeScope

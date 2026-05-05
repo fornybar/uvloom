@@ -68,7 +68,6 @@ in
     - `sourcePreference`: uv2nix source preference. Defaults to `"wheel"`.
     - `dependencies`: uv2nix dependency selection. Defaults to `workspace.deps.default`.
     - `overlays`: Additional pyproject.nix package-set overlays. Defaults to `[ ]`.
-    - `editable`: Optional editable overlay config, usually `{ root = "$PWD"; members = [ "package-name" ]; }`.
     - `environ`: Environment passed to `workspace.mkPyprojectOverlay`. Defaults to `{ }`.
     - `stdenv`: stdenv used by pyproject.nix builds. Defaults to `pkgs.stdenv`.
 
@@ -79,11 +78,9 @@ in
     - `interpreter`: The resolved Python interpreter derivation. Use `lib.getExe scope.interpreter` for the executable path, for example in `UV_PYTHON`.
     - `pythonSet`: The underlying pyproject.nix package set after build-system, workspace, and user overlays. This is an advanced seam for package-set-level interop.
     - `nixpkgs.package { package ? null, exportPackages ? [ resolved package ] }`: Build one generated package through nixpkgs `buildPythonPackage` compatibility.
-    - `mkVenv { name, dependencies ? workspace.deps.default }`: Build a virtual environment from a dependency selection.
+    - `mkVenv { name, dependencies ? workspace.deps.default, editable ? false }`: Build a virtual environment from a dependency selection. Set `editable = { root = "$PWD"; members = [ "package-name" ]; }` for working-tree imports.
     - `mkApplication { package ? null, venv ? null, pname ? null, version ? null }`: Build an application wrapper for a local package. `package` can be omitted for single-package workspaces.
     - `mkPytestCheck { package ? null, groups ? [ "test" ], dependencies ? null, name ? null, paths ? [ "tests" ], pytestFlags ? [ ], env ? { }, nativeBuildInputs ? [ ] }`: Build a pytest check derivation.
-    - `editablePythonSet`: Present only when `editable` is set. Package set with editable overlay applied.
-    - `mkEditableVenv { name, dependencies ? workspace.deps.default }`: Present only when `editable` is set. Build an editable virtual environment.
 
     # Example
 
@@ -152,7 +149,6 @@ in
           sourcePreference ? "wheel",
           dependencies ? workspace.deps.default,
           overlays ? [ ],
-          editable ? null,
           environ ? { },
           stdenv ? pkgs.stdenv,
         }:
@@ -164,7 +160,6 @@ in
             sourcePreference
             dependencies
             overlays
-            editable
             environ
             stdenv
             ;

@@ -2,7 +2,7 @@
 
 uvloom is a thin Nix library for Python projects that use `uv` and `uv2nix`. It removes repeated setup code while keeping control in your flake.
 
-You still choose nixpkgs, Python, dependency groups, overlays, editable mode, packages, checks, shells, and exports.
+You still choose nixpkgs, Python, dependency groups, overlays, packages, checks, shells, editable venvs, and exports.
 
 ## Use uvloom when
 
@@ -46,7 +46,7 @@ For multi-system flakes, define `project` once outside the per-system function, 
 uvloom has two main objects:
 
 1. **Project**: loaded from `pyproject.toml` and `uv.lock`.
-2. **Scope**: project bound to nixpkgs, Python, dependency selection, overlays, and optional editable mode.
+2. **Scope**: project bound to nixpkgs, Python, dependency selection, and overlays.
 
 ```nix
 project = uvloom.lib.loadProject { root = ./.; };
@@ -62,9 +62,8 @@ Scope helpers become normal flake outputs:
 | Helper | Purpose |
 | --- | --- |
 | `scope.mkApplication` | Console-script application package. |
-| `scope.mkVenv` | Virtual environment. |
+| `scope.mkVenv` | Virtual environment, optionally editable. |
 | `scope.mkPytestCheck` | pytest derivation for `checks`. |
-| `scope.mkEditableVenv` | Editable dev environment when `editable` is enabled. |
 | `scope.nixpkgs.package` | One nixpkgs-compatible package export. |
 | `scope.pythonSet` | Advanced pyproject.nix package set access. |
 
@@ -131,25 +130,18 @@ checks.${system}.pytest = scope.mkPytestCheck {
 
 ### Editable development shell
 
-Enable editable mode on the scope:
-
-```nix
-scope = project.forPython {
-  inherit pkgs;
-  interpreter = pkgs.python312;
-  editable = {
-    root = "$PWD";
-    members = [ "my-project" ];
-  };
-};
-```
-
-Expose editable environment:
+Expose an editable venv:
 
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkEditableVenv { name = "my-project-dev-env"; })
+    (scope.mkVenv {
+      name = "my-project-dev-env";
+      editable = {
+        root = "$PWD";
+        members = [ "my-project" ];
+      };
+    })
     pkgs.uv
   ];
 
@@ -248,7 +240,6 @@ Use helpers first. Drop lower when needed:
 
 - `project.workspace`: raw upstream `uv2nix` workspace.
 - `scope.pythonSet`: final pyproject.nix package set.
-- `scope.editablePythonSet`: editable package set when editable mode is enabled.
 - `project.nixpkgs.pythonPackagesExtension`: package-set export adapter.
 - `project.nixpkgs.overlay`: flake-overlay export convenience.
 - `scope.nixpkgs.package`: direct one-package export.

@@ -55,7 +55,6 @@ Arguments:
 | `sourcePreference` | `"wheel"` | Build-system overlay preference, usually `"wheel"` or `"sdist"`. |
 | `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection used by generated workspace overlay. |
 | `overlays` | `[ ]` | Extra pyproject.nix package-set overlays. Must be a list. |
-| `editable` | `null` | Editable config, usually `{ root = "$PWD"; members = [ "my-project" ]; }`. |
 | `environ` | `{ }` | Environment passed to upstream workspace overlay. |
 | `stdenv` | `pkgs.stdenv` | stdenv used by pyproject.nix builds and checks. |
 
@@ -64,13 +63,11 @@ Returns scope helpers:
 | Attribute | Meaning |
 | --- | --- |
 | `scope.interpreter` | Resolved Python interpreter derivation. |
-| `scope.pythonSet` | Final pyproject.nix package set for non-editable builds. |
-| `scope.mkVenv` | Build virtual environment. |
+| `scope.pythonSet` | Final pyproject.nix package set. |
+| `scope.mkVenv` | Build virtual environment. Accepts `editable` for working-tree source. |
 | `scope.mkApplication` | Build console-script application wrapper. |
 | `scope.mkPytestCheck` | Build pytest derivation for `checks`. |
 | `scope.nixpkgs.package` | Export and return one nixpkgs-compatible package. |
-| `scope.editablePythonSet` | Final editable package set. Present only when `editable` is configured. |
-| `scope.mkEditableVenv` | Build editable virtual environment. Present only when `editable` is configured. |
 
 ## Scope helpers
 
@@ -95,12 +92,25 @@ scope.mkVenv {
 }
 ```
 
+Build editable virtual environment:
+
+```nix
+scope.mkVenv {
+  name = "my-project-dev-env";
+  editable = {
+    root = "$PWD";
+    members = [ "my-project" ];
+  };
+}
+```
+
 Arguments:
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `name` | Required | Derivation/environment name. |
 | `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
+| `editable` | `false` | `false` for store-source venv, or an attrset like `{ root = "$PWD"; members = [ "my-project" ]; }` for working-tree source. |
 
 ### `scope.mkApplication`
 
@@ -147,34 +157,11 @@ Arguments:
 | `env` | `{ }` | Environment variables for check derivation. |
 | `nativeBuildInputs` | `[ ]` | Extra native build inputs for check derivation. |
 
-### `scope.mkEditableVenv`
-
-Build virtual environment that imports selected workspace members from working tree.
-
-Requires `editable` on `project.forPython`.
-
-```nix
-scope.mkEditableVenv {
-  name = "my-project-dev-env";
-}
-```
-
-Arguments:
-
-| Argument | Default | Meaning |
-| --- | --- | --- |
-| `name` | Required | Derivation/environment name. |
-| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
-
 ### `scope.pythonSet`
 
 Final pyproject.nix package set after build-system overlay, workspace overlay, and user overlays.
 
 Use for advanced package overrides, custom derivations, and interop with pyproject.nix APIs.
-
-### `scope.editablePythonSet`
-
-Final editable package set. Present only when `editable` is configured.
 
 ### `scope.nixpkgs.package`
 

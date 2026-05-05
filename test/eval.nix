@@ -13,15 +13,6 @@ let
     interpreter = pkgs.python312;
   };
 
-  editableScope = project.forPython {
-    inherit pkgs;
-    interpreter = pkgs.python312;
-    editable = {
-      root = "$REPO_ROOT";
-      members = [ "smiley-plot" ];
-    };
-  };
-
   environScope = project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
@@ -123,6 +114,7 @@ let
     root = ./fixtures/scripts;
   };
 in
+assert uvloom.lib.apiVersion == 1;
 assert uvloom.lib ? loadScript;
 assert uvloom.lib ? loadScripts;
 assert project ? workspace;
@@ -147,11 +139,17 @@ assert !(scope ? mkPythonPackagesExtension);
 assert !(scope ? mkNixpkgsPackage);
 assert !(scope ? editablePythonSet);
 assert !(scope ? mkEditableVenv);
-assert editableScope ? editablePythonSet;
-assert editableScope ? mkEditableVenv;
 assert environScope ? pythonSet;
-assert builtins.isAttrs (editableScope.mkEditableVenv { name = "smiley-plot-dev-env"; });
 assert builtins.isAttrs (scope.mkVenv { name = "smiley-plot-env"; });
+assert builtins.isAttrs (
+  scope.mkVenv {
+    name = "smiley-plot-dev-env";
+    editable = {
+      root = "$REPO_ROOT";
+      members = [ "smiley-plot" ];
+    };
+  }
+);
 assert builtins.isAttrs (scope.mkApplication { package = "smiley-plot"; });
 assert builtins.isAttrs defaultApplication;
 assert defaultApplication.pname == "smiley-plot";
