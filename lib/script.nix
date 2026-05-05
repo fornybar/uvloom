@@ -84,7 +84,7 @@ let
               name ? loadedScript.name,
               venv ? mkVenv { },
             }:
-            pkgs.writeScript name (renderScript {
+            pkgs.writeScriptBin name (renderScript {
               inherit venv;
             });
 
