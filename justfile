@@ -4,6 +4,17 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 _default:
   @just --list
 
+# Update flake.lock files in all examples
+# Usage: just examples-update-locks
+examples-update-locks:
+  find examples -mindepth 2 -maxdepth 2 -name flake.nix -print0 \
+    | sort -z \
+    | while IFS= read -r -d '' flake; do \
+      dir="$(dirname "$flake")"; \
+      echo "Updating $dir/flake.lock"; \
+      nix flake update --flake "./$dir"; \
+    done
+
 # Build generated documentation into ./result-docs
 # Usage: just docs-build
 docs-build:
