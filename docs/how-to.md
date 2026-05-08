@@ -198,6 +198,38 @@ Include dev/test dependencies in editable environment:
 })
 ```
 
+Do not run `uv sync` into a uvloom `mkVenv` environment. uvloom venvs are built by Nix in the store from `uv.lock`; `uv sync` manages a separate mutable `.venv` and does not use uv2nix overlays or Nix-built packages. In one dev shell, choose one model:
+
+- `scope.mkVenv` for a Nix-built uvloom environment.
+- `uv sync` for a normal mutable uv environment outside uvloom.
+
+Mixing both usually leaves two virtual environments on `PATH`, causing imports and console scripts to disagree.
+
+## Reload nix-direnv after `uv.lock` changes
+
+Use `watch_file` when your dev shell is loaded through [nix-direnv](https://github.com/nix-community/nix-direnv). Watch `uv.lock`, not `pyproject.toml`, so dependency edits reload only after uv has refreshed the lock file.
+
+```sh
+# .envrc
+watch_file uv.lock
+use flake .
+```
+
+Now commands that update the lock trigger a shell reload on the next prompt:
+
+```sh
+uv add rich
+uv lock --upgrade
+```
+
+uvloom builds from the locked dependency graph. Watching only `uv.lock` avoids expensive reloads while editing unrelated `pyproject.toml` metadata or before the lock file is consistent. If you intentionally change project metadata without changing `uv.lock`, run `direnv reload` manually.
+
+With flakes, keep `uv.lock` tracked by Git so Nix sees it during evaluation:
+
+```sh
+git add uv.lock
+```
+
 ## Add a package override
 
 Use pyproject.nix package-set overlays when a locked Python package needs extra build inputs or attribute changes. These overlays are passed to `pythonSet.overrideScope`; they are not nixpkgs flake overlays.

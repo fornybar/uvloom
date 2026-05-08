@@ -120,6 +120,8 @@ Use editable mode for dev shells, REPLs, language servers, and fast test loops. 
 
 `root` is a string on purpose. `"$PWD"` is resolved by the shell at use time, so the environment follows the checkout path instead of a Nix store path.
 
+Do not combine uvloom `mkVenv` environments with `uv sync`. A uvloom venv is a Nix store output built through uv2nix; `uv sync` creates or mutates a separate `.venv` and bypasses uv2nix overlays, package fixes, and Nix-built dependencies. Use `uv lock` to update the lock file, then rebuild or reload the Nix shell so uvloom can rebuild its environment from `uv.lock`.
+
 ## Overlay layers
 
 uvloom uses two different overlay concepts. Mixing them up is the most common advanced-use mistake.
