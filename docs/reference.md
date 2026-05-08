@@ -77,9 +77,14 @@ Resolved Python interpreter. Useful in dev shells:
 
 ```nix
 env = {
+  UV_NO_SYNC = "1";
   UV_PYTHON = pkgs.lib.getExe scope.interpreter;
   UV_PYTHON_DOWNLOADS = "never";
 };
+
+shellHook = ''
+  unset PYTHONPATH
+'';
 ```
 
 ### `scope.mkVenv`

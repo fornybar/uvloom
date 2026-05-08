@@ -164,11 +164,22 @@ devShells.${system}.default = pkgs.mkShell {
   ];
 
   env = {
+    UV_NO_SYNC = "1";
     UV_PYTHON = pkgs.lib.getExe scope.interpreter;
     UV_PYTHON_DOWNLOADS = "never";
   };
+
+  shellHook = ''
+    unset PYTHONPATH
+  '';
 };
 ```
+
+> **Tip**
+>
+> `UV_NO_SYNC = "1"` tells `uv` not to create or update its own virtual environment inside the shell.
+> `UV_PYTHON_DOWNLOADS = "never"` keeps Python interpreter selection under Nix control.
+> `unset PYTHONPATH` avoids leaked Python paths from other Nix builds shadowing packages from the uv2nix virtualenv.
 
 Enter shell:
 

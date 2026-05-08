@@ -40,9 +40,14 @@
         ];
 
         env = {
+          UV_NO_SYNC = "1";
           UV_PYTHON = pkgs.lib.getExe scope.pythonSet.python;
           UV_PYTHON_DOWNLOADS = "never";
         };
+
+        shellHook = ''
+          unset PYTHONPATH
+        '';
       };
     };
 }
