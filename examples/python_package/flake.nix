@@ -20,7 +20,7 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
-      project = uvloom.lib.loadProject { root = ./.; };
+      project = uvloom.lib.project.load { root = ./.; };
 
       # For dependencies not in the PyPI or uv.lock metadata
       overlay = final: prev: {
@@ -35,7 +35,7 @@
         overlays = [ overlay ];
       };
 
-      venv = scope.mkVenv {
+      venv = scope.venv {
         name = "smiley-plot-dev-env";
         editable = {
           root = "$PWD";
@@ -44,7 +44,7 @@
       };
     in
     {
-      packages.${system}.default = scope.mkApplication { package = "smiley-plot"; };
+      packages.${system}.default = scope.app { package = "smiley-plot"; };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [

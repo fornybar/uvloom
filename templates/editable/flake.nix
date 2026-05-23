@@ -17,7 +17,7 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      project = uvloom.lib.loadProject { root = ./.; };
+      project = uvloom.lib.project.load { root = ./.; };
     in
     {
       devShells = forAllSystems (
@@ -32,7 +32,7 @@
         {
           default = pkgs.mkShell {
             packages = [
-              (scope.mkVenv {
+              (scope.venv {
                 name = "smiley-plot-dev-env";
                 editable = {
                   root = "$PWD";

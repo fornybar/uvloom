@@ -17,7 +17,7 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      project = uvloom.lib.loadProject { root = ./.; };
+      project = uvloom.lib.project.load { root = ./.; };
     in
     {
       checks = forAllSystems (
@@ -30,7 +30,7 @@
           };
         in
         {
-          pytest = scope.mkPytestCheck { package = "smiley-plot"; };
+          pytest = scope.check.pytest { package = "smiley-plot"; };
         }
       );
     };

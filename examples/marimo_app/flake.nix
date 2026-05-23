@@ -16,18 +16,18 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
-      script = uvloom.lib.loadScript { script = ./marimo_app.py; };
+      script = uvloom.lib.inline.load { path = ./marimo_app.py; };
 
       scope = script.forPython {
         inherit pkgs;
         interpreter = pkgs.python312;
       };
 
-      venv = scope.mkVenv { };
+      venv = scope.venv { };
     in
     {
       packages.${system} = {
-        run-script = scope.mkApplication { name = "run-script"; };
+        run-script = scope.app { name = "run-script"; };
 
         open-app = pkgs.writeShellApplication {
           name = "open-app";

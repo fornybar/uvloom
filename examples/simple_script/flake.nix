@@ -20,7 +20,7 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
-      script = uvloom.lib.loadScript { script = ./script.py; };
+      script = uvloom.lib.inline.load { path = ./script.py; };
 
       scope = script.forPython {
         inherit pkgs;
@@ -28,11 +28,11 @@
       };
     in
     {
-      packages.${system}.default = scope.mkApplication { name = "simple-script"; };
+      packages.${system}.default = scope.app { name = "simple-script"; };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [
-          (scope.mkEditableApplication {
+          (scope.app.editable {
             name = "simple-script";
             path = "script.py";
           })
