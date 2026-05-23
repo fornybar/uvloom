@@ -4,7 +4,7 @@
 }:
 
 let
-  project = uvloom.lib.loadProject {
+  project = uvloom.lib.project.load {
     root = ./fixtures/smiley-plot;
   };
 
@@ -72,8 +72,8 @@ let
     exportPackages = [ "smiley-plot" ];
   };
 
-  script = uvloom.lib.loadScript {
-    script = ./fixtures/scripts/example.py;
+  script = uvloom.lib.inline.load {
+    path = ./fixtures/scripts/example.py;
   };
 
   scriptScope = script.forPython {
@@ -85,8 +85,8 @@ let
     inherit pkgs;
   };
 
-  sdistScript = uvloom.lib.loadScript {
-    script = ./fixtures/scripts/example.py;
+  sdistScript = uvloom.lib.inline.load {
+    path = ./fixtures/scripts/example.py;
     config.no-binary = true;
   };
 
@@ -95,28 +95,48 @@ let
     interpreter = pkgs.python312;
   };
 
-  sdistRenderedScript = sdistScriptScope.renderScript { };
+  sdistRenderedScript = sdistScriptScope.render { };
 
-  defaultApplication = scope.mkApplication { };
+  defaultApplication = scope.app { };
 
-  customApplication = scope.mkApplication {
+  packageApplication = scope.app {
+    package = "smiley-plot";
+  };
+
+  customApplication = scope.app {
     pname = "custom-smiley-plot";
     version = "1.2.3";
   };
 
-  defaultPytestCheck = scope.mkPytestCheck { };
+  commandApplication = scope.app {
+    name = "smiley-command";
+    command = [
+      "python"
+      "-c"
+      "print('ok')"
+    ];
+  };
 
-  customPytestCheck = scope.mkPytestCheck {
+  defaultPytestCheck = scope.check.pytest { };
+
+  customPytestCheck = scope.check.pytest {
     name = "custom-smiley-pytest";
   };
 
-  scripts = uvloom.lib.loadScripts {
+  scripts = uvloom.lib.inline.fromDir {
     root = ./fixtures/scripts;
   };
 in
-assert uvloom.lib.apiVersion == 1;
-assert uvloom.lib ? loadScript;
-assert uvloom.lib ? loadScripts;
+assert uvloom.lib.apiVersion == 2;
+assert uvloom.lib ? project;
+assert uvloom.lib.project ? load;
+assert uvloom.lib ? inline;
+assert uvloom.lib.inline ? load;
+assert uvloom.lib.inline ? fromDir;
+assert !(uvloom.lib.inline ? dir);
+assert !(uvloom.lib ? loadProject);
+assert !(uvloom.lib ? loadScript);
+assert !(uvloom.lib ? loadScripts);
 assert project ? workspace;
 assert project.workspace ? deps;
 assert project.workspace ? mkPyprojectOverlay;
@@ -130,9 +150,13 @@ assert scope ? pythonSet;
 assert scope ? nixpkgs;
 assert !(scope.nixpkgs ? pythonPackagesExtension);
 assert scope.nixpkgs ? package;
-assert scope ? mkVenv;
-assert scope ? mkApplication;
-assert scope ? mkPytestCheck;
+assert scope ? venv;
+assert !(scope ? mkVenv);
+assert scope ? app;
+assert !(scope ? mkApplication);
+assert scope ? check;
+assert scope.check ? pytest;
+assert !(scope ? mkPytestCheck);
 assert !(project ? mkPythonPackagesExtension);
 assert !(project ? mkNixpkgsOverlay);
 assert !(scope ? mkPythonPackagesExtension);
@@ -140,9 +164,9 @@ assert !(scope ? mkNixpkgsPackage);
 assert !(scope ? editablePythonSet);
 assert !(scope ? mkEditableVenv);
 assert environScope ? pythonSet;
-assert builtins.isAttrs (scope.mkVenv { name = "smiley-plot-env"; });
+assert builtins.isAttrs (scope.venv { name = "smiley-plot-env"; });
 assert builtins.isAttrs (
-  scope.mkVenv {
+  scope.venv {
     name = "smiley-plot-dev-env";
     editable = {
       root = "$REPO_ROOT";
@@ -150,14 +174,18 @@ assert builtins.isAttrs (
     };
   }
 );
-assert builtins.isAttrs (scope.mkApplication { package = "smiley-plot"; });
+assert builtins.isAttrs packageApplication;
+assert packageApplication.pname == "smiley-plot";
+assert packageApplication.version == "0.1.0";
 assert builtins.isAttrs defaultApplication;
 assert defaultApplication.pname == "smiley-plot";
 assert defaultApplication.version == "0.1.0";
 assert builtins.isAttrs customApplication;
 assert customApplication.pname == "custom-smiley-plot";
 assert customApplication.version == "1.2.3";
-assert builtins.isAttrs (scope.mkPytestCheck { package = "smiley-plot"; });
+assert builtins.isAttrs commandApplication;
+assert commandApplication.name == "smiley-command";
+assert builtins.isAttrs (scope.check.pytest { package = "smiley-plot"; });
 assert builtins.isAttrs defaultPytestCheck;
 assert defaultPytestCheck.name == "smiley-plot-pytest";
 assert builtins.isAttrs customPytestCheck;
@@ -179,16 +207,19 @@ assert sdistScriptScope ? pythonSet;
 assert sdistScriptScope.pythonSet.tqdm.format == "pyproject";
 assert pkgs.lib.hasSuffix ".tar.gz" sdistScriptScope.pythonSet.tqdm.src.name;
 assert builtins.isString sdistRenderedScript;
-assert scriptScope ? mkVenv;
-assert scriptScope ? renderScript;
-assert scriptScope ? mkApplication;
-assert scriptScope ? mkEditableApplication;
-assert builtins.isAttrs (scriptScope.mkVenv { });
-assert builtins.isString (scriptScope.renderScript { });
-assert builtins.isAttrs (scriptScope.mkApplication { });
-assert builtins.isAttrs (
-  scriptScope.mkEditableApplication { path = "test/fixtures/scripts/example.py"; }
-);
+assert scriptScope ? venv;
+assert !(scriptScope ? mkVenv);
+assert scriptScope ? render;
+assert !(scriptScope ? renderScript);
+assert scriptScope ? app;
+assert !(scriptScope ? mkApplication);
+assert scriptScope.app ? editable;
+assert !(scriptScope ? editable);
+assert !(scriptScope ? mkEditableApplication);
+assert builtins.isAttrs (scriptScope.venv { });
+assert builtins.isString (scriptScope.render { });
+assert builtins.isAttrs (scriptScope.app { });
+assert builtins.isAttrs (scriptScope.app.editable { path = "test/fixtures/scripts/example.py"; });
 assert scripts ? example;
 assert scripts.example.name == "example";
 true

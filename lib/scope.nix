@@ -19,6 +19,7 @@ let
   makeScope =
     {
       workspace,
+      workspaceRoot ? null,
       pkgs,
       interpreter ? null,
       sourcePreference ? "wheel",
@@ -94,7 +95,7 @@ let
           editable ? false,
         }:
         let
-          venvPythonSet = if editable == false then pythonSet else mkEditablePythonSet "mkVenv" editable;
+          venvPythonSet = if editable == false then pythonSet else mkEditablePythonSet "venv" editable;
         in
         venvPythonSet.mkVirtualEnv name dependencies;
 
@@ -132,18 +133,74 @@ let
           venv ? null,
           pname ? null,
           version ? null,
+          name ? pname,
+          command ? null,
+          pythonPath ? [ ],
+          workingDirectory ? workspaceRoot,
         }:
-        let
-          packageName = packageLib.resolveLocalPackage "mkApplication" candidates pythonSet package;
-        in
-        (pkgs.callPackage pyproject-nix.build.util { }).mkApplication (
-          {
-            venv = if venv == null then mkVenv { name = "${packageName}-env"; } else venv;
-            package = pythonSet.${packageName};
-          }
-          // lib.optionalAttrs (pname != null) { inherit pname; }
-          // lib.optionalAttrs (version != null) { inherit version; }
-        );
+        if command != null then
+          if package != null then
+            errors.fail "app" "pass either `package` or `command`, not both"
+          else if builtins.isString command then
+            errors.fail "app" "`command` must be a list, not a shell string"
+          else if !builtins.isList command then
+            errors.fail "app" "`command` must be a non-empty list of strings or paths"
+          else if command == [ ] then
+            errors.fail "app" "`command` must be a non-empty list of strings or paths"
+          else if !(builtins.all (entry: builtins.isString entry || builtins.isPath entry) command) then
+            errors.fail "app" "`command` must be a non-empty list of strings or paths"
+          else if name == null then
+            errors.fail "app" "`name` is required when using command mode"
+          else if name == "" then
+            errors.fail "app" "`name` must be non-empty when using command mode"
+          else if !builtins.isList pythonPath then
+            errors.fail "app" "`pythonPath` must be a list of strings or paths"
+          else if !(builtins.all (entry: builtins.isString entry || builtins.isPath entry) pythonPath) then
+            errors.fail "app" "`pythonPath` must be a list of strings or paths"
+          else
+            let
+              commandVenv = if venv == null then mkVenv { name = "${name}-env"; } else venv;
+              commandArgs = map (entry: if builtins.isPath entry then "${entry}" else toString entry) command;
+              pythonPathEntries = map (
+                entry: if builtins.isPath entry then "${entry}" else toString entry
+              ) pythonPath;
+              resolvedWorkingDirectory =
+                if workingDirectory == null then
+                  null
+                else if builtins.isPath workingDirectory then
+                  "${workingDirectory}"
+                else
+                  toString workingDirectory;
+            in
+            pkgs.writeShellApplication {
+              inherit name;
+              runtimeInputs = [ commandVenv ];
+              text = lib.concatStringsSep "\n" (
+                (lib.optional (
+                  resolvedWorkingDirectory != null
+                ) "cd ${lib.escapeShellArg resolvedWorkingDirectory}")
+                ++ (lib.optional (pythonPath != [ ]) ''
+                  export PYTHONPATH=${lib.escapeShellArg (lib.concatStringsSep ":" pythonPathEntries)}''${PYTHONPATH:+:}''${PYTHONPATH:-}
+                '')
+                ++ [
+                  ''
+                    exec ${lib.escapeShellArgs commandArgs} "$@"
+                  ''
+                ]
+              );
+            }
+        else
+          let
+            packageName = packageLib.resolveLocalPackage "app" candidates pythonSet package;
+          in
+          (pkgs.callPackage pyproject-nix.build.util { }).mkApplication (
+            {
+              venv = if venv == null then mkVenv { name = "${packageName}-env"; } else venv;
+              package = pythonSet.${packageName};
+            }
+            // lib.optionalAttrs (pname != null) { inherit pname; }
+            // lib.optionalAttrs (version != null) { inherit version; }
+          );
 
       mkPytestCheck =
         {
@@ -157,13 +214,14 @@ let
           nativeBuildInputs ? [ ],
         }:
         let
-          packageName = packageLib.requireLocalPackage "mkPytestCheck" candidates (
-            packageLib.inferLocalPackage "mkPytestCheck" candidates package
+          packageName = packageLib.requireLocalPackage "check.pytest" candidates (
+            packageLib.inferLocalPackage "check.pytest" candidates package
           );
           testDependencies = if dependencies == null then { ${packageName} = groups; } else dependencies;
           testScope = makeScope {
             inherit
               workspace
+              workspaceRoot
               pkgs
               sourcePreference
               environ
@@ -174,9 +232,9 @@ let
             overlays = checkedOverlays;
           };
           resolvedPackageName =
-            packageLib.requirePythonSetPackage "mkPytestCheck" candidates testScope.pythonSet
+            packageLib.requirePythonSetPackage "check.pytest" candidates testScope.pythonSet
               packageName;
-          pytestVenv = testScope.mkVenv {
+          pytestVenv = testScope.venv {
             name = "${resolvedPackageName}-pytest-env";
             dependencies = testDependencies;
           };
@@ -200,10 +258,13 @@ let
     {
       inherit
         pythonSet
-        mkVenv
-        mkApplication
-        mkPytestCheck
         ;
+
+      venv = mkVenv;
+      app = mkApplication;
+      check = {
+        pytest = mkPytestCheck;
+      };
 
       interpreter = resolvedInterpreter;
 

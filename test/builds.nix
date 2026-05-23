@@ -4,7 +4,7 @@
 }:
 
 let
-  project = uvloom.lib.loadProject {
+  project = uvloom.lib.project.load {
     root = ./fixtures/smiley-plot;
   };
 
@@ -19,8 +19,8 @@ let
     }
   );
 
-  script = uvloom.lib.loadScript {
-    script = ./fixtures/scripts/example.py;
+  script = uvloom.lib.inline.load {
+    path = ./fixtures/scripts/example.py;
   };
 
   scriptScope = script.forPython {
@@ -38,8 +38,8 @@ let
     };
   };
 
-  sdistScript = uvloom.lib.loadScript {
-    script = ./fixtures/scripts/example.py;
+  sdistScript = uvloom.lib.inline.load {
+    path = ./fixtures/scripts/example.py;
     config = {
       no-binary = true;
       extra-build-dependencies.tqdm = [ setuptoolsRequirement ];
@@ -50,23 +50,60 @@ let
     inherit pkgs;
     interpreter = pkgs.python312;
   };
+
+  nonPackageProject = uvloom.lib.project.load {
+    root = ../examples/non_package_app;
+  };
+
+  nonPackageScope = nonPackageProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  nonPackageApplication = nonPackageScope.app {
+    name = "non-package-app";
+    command = [
+      "python"
+      ../examples/non_package_app/app.py
+    ];
+    pythonPath = [ ../examples/non_package_app ];
+  };
+
+  nonPackageOverrideCwdApplication = nonPackageScope.app {
+    name = "non-package-app-utils-cwd";
+    command = [
+      "python"
+      "-c"
+      "from pathlib import Path; print(Path.cwd().name)"
+    ];
+    workingDirectory = ../examples/non_package_app/utils;
+  };
 in
 {
-  venv = scope.mkVenv {
+  venv = scope.venv {
     name = "smiley-plot-env";
   };
 
-  application = scope.mkApplication {
+  application = scope.app {
     package = "smiley-plot";
   };
 
-  application-default = scope.mkApplication { };
+  application-default = scope.app { };
 
-  pytest = scope.mkPytestCheck {
+  application-command = scope.app {
+    name = "smiley-command";
+    command = [
+      "python"
+      "-c"
+      "print('ok')"
+    ];
+  };
+
+  pytest = scope.check.pytest {
     package = "smiley-plot";
   };
 
-  pytest-default = scope.mkPytestCheck { };
+  pytest-default = scope.check.pytest { };
 
   nixpkgs-package = scope.nixpkgs.package {
     package = "smiley-plot";
@@ -76,11 +113,38 @@ in
     ps."smiley-plot"
   ]);
 
-  script-application = scriptScope.mkApplication { };
+  script-application = scriptScope.app { };
 
-  script-editable-application = scriptScope.mkEditableApplication {
+  script-editable-application = scriptScope.app.editable {
     path = "test/fixtures/scripts/example.py";
   };
 
-  script-sdist-application = sdistScriptScope.mkApplication { };
+  script-sdist-application = sdistScriptScope.app { };
+
+  non-package-application = nonPackageApplication;
+
+  non-package-run =
+    pkgs.runCommand "non-package-run"
+      {
+        nativeBuildInputs = [ nonPackageApplication ];
+      }
+      ''
+        output="$(${pkgs.lib.getExe nonPackageApplication})"
+        echo "$output"
+        echo "$output" | grep -x "ok"
+        echo "$output" | grep -E "^cwd=.*non_package_app$"
+        touch $out
+      '';
+
+  non-package-working-directory-override =
+    pkgs.runCommand "non-package-working-directory-override"
+      {
+        nativeBuildInputs = [ nonPackageOverrideCwdApplication ];
+      }
+      ''
+        output="$(${pkgs.lib.getExe nonPackageOverrideCwdApplication})"
+        echo "$output"
+        echo "$output" | grep -E ".*utils$"
+        touch $out
+      '';
 }
