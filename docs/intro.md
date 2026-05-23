@@ -27,14 +27,14 @@ Use upstream `uv2nix` directly when you need full manual control over every comp
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      project = uvloom.lib.loadProject { root = ./.; };
+      project = uvloom.lib.project.load { root = ./.; };
       scope = project.forPython {
         inherit pkgs;
         interpreter = pkgs.python312;
       };
     in
     {
-      packages.${system}.default = scope.mkApplication { package = "my-project"; };
+      packages.${system}.default = scope.app { package = "my-project"; };
     };
 }
 ```
@@ -49,7 +49,7 @@ uvloom has two main objects:
 2. **Scope**: project bound to nixpkgs, Python, dependency selection, and overlays.
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 
 scope = project.forPython {
   inherit pkgs;
@@ -61,9 +61,9 @@ Scope helpers become normal flake outputs:
 
 | Helper | Purpose |
 | --- | --- |
-| `scope.mkApplication` | Console-script application package. |
-| `scope.mkVenv` | Virtual environment, optionally editable. |
-| `scope.mkPytestCheck` | pytest derivation for `checks`. |
+| `scope.app` | Console-script application package. |
+| `scope.venv` | Virtual environment, optionally editable. |
+| `scope.check.pytest` | pytest derivation for `checks`. |
 | `scope.nixpkgs.package` | One nixpkgs-compatible package export. |
 | `scope.pythonSet` | Advanced pyproject.nix package set access. |
 
@@ -93,7 +93,7 @@ nix flake check
 Use when project exposes a console script:
 
 ```nix
-packages.${system}.default = scope.mkApplication {
+packages.${system}.default = scope.app {
   package = "my-project";
 };
 ```
@@ -103,7 +103,7 @@ If workspace has exactly one local package, `package` can be omitted.
 ### Virtual environment
 
 ```nix
-packages.${system}.env = scope.mkVenv {
+packages.${system}.env = scope.venv {
   name = "my-project-env";
 };
 ```
@@ -111,7 +111,7 @@ packages.${system}.env = scope.mkVenv {
 Include all dependency groups:
 
 ```nix
-packages.${system}.dev = scope.mkVenv {
+packages.${system}.dev = scope.venv {
   name = "my-project-dev-env";
   dependencies = project.workspace.deps.all;
 };
@@ -120,7 +120,7 @@ packages.${system}.dev = scope.mkVenv {
 ### pytest check
 
 ```nix
-checks.${system}.pytest = scope.mkPytestCheck {
+checks.${system}.pytest = scope.check.pytest {
   package = "my-project";
   groups = [ "test" ];
   paths = [ "tests" ];
@@ -135,7 +135,7 @@ Expose an editable venv:
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkVenv {
+    (scope.venv {
       name = "my-project-dev-env";
       editable = {
         root = "$PWD";
@@ -213,8 +213,8 @@ overlays.default = project.nixpkgs.overlay {
 For PEP 723 scripts:
 
 ```nix
-script = uvloom.lib.loadScript {
-  script = ./scripts/tool.py;
+script = uvloom.lib.inline.load {
+  path = ./scripts/tool.py;
 };
 
 scope = script.forPython {
@@ -222,16 +222,16 @@ scope = script.forPython {
   interpreter = pkgs.python312;
 };
 
-packages.${system}.tool = scope.mkApplication { };
+packages.${system}.tool = scope.app { };
 ```
 
-For live script development, add `scope.mkVenv { }` to a dev shell and run:
+For live script development, add `scope.venv { }` to a dev shell and run:
 
 ```sh
 python scripts/tool.py
 ```
 
-Or add `scope.mkEditableApplication { path = "scripts/tool.py"; }` to the shell and run `tool`. It includes a venv by default.
+Or add `scope.app.editable { path = "scripts/tool.py"; }` to the shell and run `tool`. It includes a venv by default.
 
 Create script lock with:
 

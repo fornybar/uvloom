@@ -15,7 +15,7 @@ nix build
 Then open `flake.nix`. Most uvloom flakes use this shape:
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 
 scope = project.forPython {
   inherit pkgs;
@@ -26,13 +26,13 @@ scope = project.forPython {
 Use scope helpers in normal flake outputs:
 
 ```nix
-packages.${system}.default = scope.mkApplication { package = "my-project"; };
-checks.${system}.pytest = scope.mkPytestCheck { package = "my-project"; };
+packages.${system}.default = scope.app { package = "my-project"; };
+checks.${system}.pytest = scope.check.pytest { package = "my-project"; };
 ```
 
 ## Mental model
 
 1. `uv.lock` records Python dependencies.
-2. `loadProject` reads `pyproject.toml` and `uv.lock` once.
+2. `project.load` reads `pyproject.toml` and `uv.lock` once.
 3. `forPython` binds that project to one nixpkgs package set and interpreter.
 4. `scope.*` helpers build packages, environments, checks, and exports.

@@ -48,20 +48,20 @@ let
         templateFlake = import (path + "/flake.nix");
         output =
           if template == "simple" then
-            "`packages.default = scope.mkApplication { ...; }`"
+            "`packages.default = scope.app { ...; }`"
           else if template == "editable" then
-            "`devShells.default` with `scope.mkVenv { editable = ...; }`"
+            "`devShells.default` with `scope.venv { editable = ...; }`"
           else if template == "pytest" then
-            "`checks.pytest = scope.mkPytestCheck { ...; }`"
+            "`checks.pytest = scope.check.pytest { ...; }`"
           else
             "see generated `flake.nix`";
         nextStep =
           if template == "simple" then
-            "Add `mkPytestCheck` or switch to the `pytest` template when tests should run in `nix flake check`."
+            "Add `check.pytest` or switch to the `pytest` template when tests should run in `nix flake check`."
           else if template == "editable" then
             "Use `nix develop`, keep `UV_PYTHON_DOWNLOADS = \"never\"`, and add dependency groups through `mkVenv { editable = { ...; }; dependencies = ...; }` when needed."
           else if template == "pytest" then
-            "Add package outputs with `scope.mkApplication` when you also need a runnable CLI."
+            "Add package outputs with `scope.app` when you also need a runnable CLI."
           else
             "Open `flake.nix` and adapt outputs to your project.";
       in

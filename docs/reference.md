@@ -8,16 +8,16 @@ Stable user-facing uvloom API. Generated API docs include fuller comments from `
 uvloom.lib.apiVersion
 ```
 
-Current documented API version: `1`.
+Current documented API version: `2`.
 
 ## Projects
 
-### `uvloom.lib.loadProject`
+### `uvloom.lib.project.load`
 
 Load a `uv` workspace from `pyproject.toml` and `uv.lock`.
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 ```
 
 Arguments:
@@ -64,9 +64,9 @@ Returns scope helpers:
 | --- | --- |
 | `scope.interpreter` | Resolved Python interpreter derivation. |
 | `scope.pythonSet` | Final pyproject.nix package set. |
-| `scope.mkVenv` | Build virtual environment. Accepts `editable` for working-tree source. |
-| `scope.mkApplication` | Build console-script application wrapper. |
-| `scope.mkPytestCheck` | Build pytest derivation for `checks`. |
+| `scope.venv` | Build virtual environment. Accepts `editable` for working-tree source. |
+| `scope.app` | Build console-script application wrapper. |
+| `scope.check.pytest` | Build pytest derivation for `checks`. |
 | `scope.nixpkgs.package` | Export and return one nixpkgs-compatible package. |
 
 ## Scope helpers
@@ -87,12 +87,12 @@ shellHook = ''
 '';
 ```
 
-### `scope.mkVenv`
+### `scope.venv`
 
 Build virtual environment.
 
 ```nix
-scope.mkVenv {
+scope.venv {
   name = "my-project-env";
 }
 ```
@@ -100,7 +100,7 @@ scope.mkVenv {
 Build editable virtual environment:
 
 ```nix
-scope.mkVenv {
+scope.venv {
   name = "my-project-dev-env";
   editable = {
     root = "$PWD";
@@ -117,17 +117,31 @@ Arguments:
 | `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
 | `editable` | `false` | `false` for store-source venv, or an attrset like `{ root = "$PWD"; members = [ "my-project" ]; }` for working-tree source. |
 
-### `scope.mkApplication`
+### `scope.app`
 
-Build console-script application wrapper for a local package.
+Build application wrapper from local package (package mode) or explicit command (command mode).
+
+Package mode example:
 
 ```nix
-scope.mkApplication {
+scope.app {
   package = "my-project";
 }
 ```
 
-Arguments:
+Command mode example (for non-package/source-tree apps):
+
+```nix
+scope.app {
+  name = "my-project";
+  command = [ "python" ./app.py ];
+  pythonPath = [ ./. ];
+}
+```
+
+Command mode accepts list commands only. Do not pass shell string like `"python app.py"`.
+
+#### Package mode arguments
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
@@ -136,12 +150,33 @@ Arguments:
 | `pname` | package metadata | Override output package name. |
 | `version` | package metadata | Override output version. |
 
-### `scope.mkPytestCheck`
+#### Command mode arguments
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | `pname` | Wrapper name. Required in command mode unless `pname` set. |
+| `command` | `null` | Non-empty list of strings/paths, for example `[ "python" ./app.py ]`. |
+| `venv` | generated | Virtual environment used by wrapper. |
+| `pythonPath` | `[ ]` | Prepended to `PYTHONPATH`; existing `PYTHONPATH` preserved as suffix. |
+| `workingDirectory` | `project root` | Directory wrapper changes into before running command. |
+
+`pythonPath = [ ./. ]` helps source-tree imports, but can shadow installed modules. Prefer narrower paths when possible (for example `[ ./src ]` instead of repo root).
+
+#### Validation rules
+
+`scope.app` fails when:
+
+- both `package` and `command` passed
+- `command` passed as shell string
+- `command` not list / empty list / contains values that are not strings or paths
+- command mode used without `name`/`pname`
+
+### `scope.check.pytest`
 
 Build pytest derivation for `checks`.
 
 ```nix
-scope.mkPytestCheck {
+scope.check.pytest {
   package = "my-project";
   groups = [ "test" ];
   paths = [ "tests" ];
@@ -244,13 +279,13 @@ project.nixpkgs.pythonPackagesExtension {
 
 ## Scripts
 
-### `uvloom.lib.loadScript`
+### `uvloom.lib.inline.load`
 
 Load a PEP 723 inline-metadata script.
 
 ```nix
-script = uvloom.lib.loadScript {
-  script = ./scripts/tool.py;
+script = uvloom.lib.inline.load {
+  path = ./scripts/tool.py;
 };
 ```
 
@@ -258,8 +293,8 @@ Arguments:
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
-| `script` | Required | Python script containing inline metadata. |
-| `lockPath` | `${script}.lock` | uv script lock file. |
+| `path` | Required | Python script containing inline metadata. |
+| `lockPath` | `.lock` | uv script lock file. |
 | `config` | `{ }` | uv2nix script config overrides. |
 
 Returns:
@@ -288,17 +323,17 @@ Script scope helpers:
 | Helper | Meaning |
 | --- | --- |
 | `scope.pythonSet` | Package set containing script dependencies. |
-| `scope.mkVenv { }` | Build script virtual environment. |
-| `scope.renderScript { }` | Render script with venv shebang. |
-| `scope.mkApplication { }` | Build runnable script application. |
-| `scope.mkEditableApplication { path ? basename, root ? "$PWD", venv ? mkVenv { } }` | Build dev-shell command that runs the live working-tree script with locked deps. |
+| `scope.venv { }` | Build script virtual environment. |
+| `scope.render { }` | Render script with venv shebang. |
+| `scope.app { }` | Build runnable script application. |
+| `scope.app.editable { path ? basename, root ? "$PWD", venv ? scope.venv { } }` | Build dev-shell command that runs the live working-tree script with locked deps. |
 
-### `uvloom.lib.loadScripts`
+### `uvloom.lib.inline.fromDir`
 
 Load all `.py` inline-metadata scripts from a directory.
 
 ```nix
-scripts = uvloom.lib.loadScripts {
+scripts = uvloom.lib.inline.fromDir {
   root = ./scripts;
 };
 ```

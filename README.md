@@ -21,16 +21,28 @@ nix build
 Core pattern:
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 
 scope = project.forPython {
   inherit pkgs;
   interpreter = pkgs.python312;
 };
 
-packages.${system}.default = scope.mkApplication { package = "my-project"; };
-checks.${system}.pytest = scope.mkPytestCheck { package = "my-project"; };
+packages.${system}.default = scope.app { package = "my-project"; };
+checks.${system}.pytest = scope.check.pytest { package = "my-project"; };
 ```
+
+Non-package uv project (`[tool.uv] package = false`) can use command mode:
+
+```nix
+packages.${system}.default = scope.app {
+  name = "my-app";
+  command = [ "python" ./app.py ];
+  pythonPath = [ ./. ];
+};
+```
+
+Use list command only. Avoid shell string. Prefer narrow `pythonPath` like `./src` when possible to reduce module shadowing.
 
 ## Templates
 

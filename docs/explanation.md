@@ -9,7 +9,7 @@ It does not replace `uv2nix`. It packages the repeated composition steps behind 
 Most flakes start with two values:
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 
 scope = project.forPython {
   inherit pkgs;
@@ -48,9 +48,9 @@ Use helpers for normal flake outputs:
 
 | Helper | Use for |
 | --- | --- |
-| `mkApplication` | Console-script wrappers under `packages`. |
-| `mkVenv` | Virtual environments under `packages` or shells, including editable development envs. |
-| `mkPytestCheck` | pytest derivations under `checks`. |
+| `app` | Console-script wrappers under `packages`. |
+| `venv` | Virtual environments under `packages` or shells, including editable development envs. |
+| `check.pytest` | pytest derivations under `checks`. |
 | `scope.nixpkgs.package` | one nixpkgs-compatible package export. |
 
 Use `scope.pythonSet` when a helper is too high-level. Common reasons:
@@ -73,13 +73,13 @@ project.workspace.deps.default
 Pass another dependency selection when output needs extras or groups:
 
 ```nix
-scope.mkVenv {
+scope.venv {
   name = "my-project-dev-env";
   dependencies = project.workspace.deps.all;
 }
 ```
 
-`mkPytestCheck` defaults differently: it builds a test scope with dependency selection equivalent to:
+`check.pytest` defaults differently: it builds a test scope with dependency selection equivalent to:
 
 ```nix
 { my-project = [ "test" ]; }
@@ -94,8 +94,8 @@ Several helpers accept `package ? null`.
 Omitting `package` works only when workspace has exactly one local package. In multi-package workspaces, pass package names explicitly:
 
 ```nix
-scope.mkApplication { package = "my-app"; }
-scope.mkPytestCheck { package = "my-library"; }
+scope.app { package = "my-app"; }
+scope.check.pytest { package = "my-library"; }
 ```
 
 This avoids accidental builds when workspace membership changes.
@@ -104,10 +104,10 @@ This avoids accidental builds when workspace membership changes.
 
 Normal Nix package builds copy source into the store. After changing source files, rebuild to see changes.
 
-Editable mode on `mkVenv` adds a pyproject.nix editable overlay so selected workspace members import from your checkout instead:
+Editable mode on `venv` adds a pyproject.nix editable overlay so selected workspace members import from your checkout instead:
 
 ```nix
-scope.mkVenv {
+scope.venv {
   name = "my-project-dev-env";
   editable = {
     root = "$PWD";
@@ -120,7 +120,7 @@ Use editable mode for dev shells, REPLs, language servers, and fast test loops. 
 
 `root` is a string on purpose. `"$PWD"` is resolved by the shell at use time, so the environment follows the checkout path instead of a Nix store path.
 
-Do not combine uvloom `mkVenv` environments with `uv sync`. A uvloom venv is a Nix store output built through uv2nix; `uv sync` creates or mutates a separate `.venv` and bypasses uv2nix overlays, package fixes, and Nix-built dependencies. Use `uv lock` to update the lock file, then rebuild or reload the Nix shell so uvloom can rebuild its environment from `uv.lock`.
+Do not combine uvloom `venv` environments with `uv sync`. A uvloom venv is a Nix store output built through uv2nix; `uv sync` creates or mutates a separate `.venv` and bypasses uv2nix overlays, package fixes, and Nix-built dependencies. Use `uv lock` to update the lock file, then rebuild or reload the Nix shell so uvloom can rebuild its environment from `uv.lock`.
 
 ## Overlay layers
 
@@ -172,19 +172,19 @@ After export, dependency resolution follows nixpkgs Python package-set rules. Th
 
 ## Script support
 
-`loadScript` is the script-shaped sibling of `loadProject`.
+`inline.load` is the script-shaped sibling of `project.load`.
 
 Use it for PEP 723 inline-metadata scripts with `uv` script locks:
 
 ```nix
-script = uvloom.lib.loadScript { script = ./scripts/tool.py; };
+script = uvloom.lib.inline.load { path = ./scripts/tool.py; };
 scope = script.forPython { inherit pkgs; };
-packages.${system}.tool = scope.mkApplication { };
+packages.${system}.tool = scope.app { };
 ```
 
-For development, put `scope.mkVenv { }` in a dev shell and run `python scripts/tool.py`. That uses locked deps while reading the live working-tree script. If you want a command alias, put `scope.mkEditableApplication { path = "scripts/tool.py"; }` in the shell; it includes a venv by default.
+For development, put `scope.venv { }` in a dev shell and run `python scripts/tool.py`. That uses locked deps while reading the live working-tree script. If you want a command alias, put `scope.app.editable { path = "scripts/tool.py"; }` in the shell; it includes a venv by default.
 
-Use `loadProject` for packages/workspaces. Use `loadScript` for single-file scripts.
+Use `project.load` for packages/workspaces. Use `inline.load` for single-file scripts.
 
 ## When to use uv2nix directly
 

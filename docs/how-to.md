@@ -21,7 +21,7 @@ outputs = { nixpkgs, uvloom, ... }:
   let
     systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     forAllSystems = nixpkgs.lib.genAttrs systems;
-    project = uvloom.lib.loadProject { root = ./.; };
+    project = uvloom.lib.project.load { root = ./.; };
   in
   {
     packages = forAllSystems (system:
@@ -33,7 +33,7 @@ outputs = { nixpkgs, uvloom, ... }:
         };
       in
       {
-        default = scope.mkApplication { package = "my-project"; };
+        default = scope.app { package = "my-project"; };
       });
   };
 ```
@@ -67,7 +67,7 @@ my-project = "my_project:main"
 Expose wrapper:
 
 ```nix
-packages.${system}.default = scope.mkApplication {
+packages.${system}.default = scope.app {
   package = "my-project";
 };
 ```
@@ -75,25 +75,57 @@ packages.${system}.default = scope.mkApplication {
 Single-package workspaces can omit `package`:
 
 ```nix
-packages.${system}.default = scope.mkApplication { };
+packages.${system}.default = scope.app { };
 ```
 
 Override wrapper metadata if needed:
 
 ```nix
-packages.${system}.default = scope.mkApplication {
+packages.${system}.default = scope.app {
   package = "my-project";
   pname = "my-cli";
   version = "1.2.3";
 };
 ```
 
+## Build app for non-package uv project (`[tool.uv] package = false`)
+
+Use command mode when project has no installable package and entrypoint is source file.
+
+`pyproject.toml`:
+
+```toml
+[tool.uv]
+package = false
+```
+
+`flake.nix` snippet:
+
+```nix
+project = uvloom.lib.project.load { root = ./.; };
+
+scope = project.forPython {
+  inherit pkgs;
+  interpreter = pkgs.python312;
+};
+
+packages.${system}.default = scope.app {
+  name = "non-package-app";
+  command = [ "python" ./app.py ];
+  pythonPath = [ ./. ];
+};
+```
+
+`command` must be list, not shell string. Use `[ "python" ./app.py ]`, not `"python app.py"`.
+
+`pythonPath = [ ./. ]` can shadow installed modules with local names. Prefer narrower paths like `[ ./src ]` when layout allows.
+
 ## Build a virtual environment
 
 Build default dependency environment:
 
 ```nix
-packages.${system}.env = scope.mkVenv {
+packages.${system}.env = scope.venv {
   name = "my-project-env";
 };
 ```
@@ -101,7 +133,7 @@ packages.${system}.env = scope.mkVenv {
 Include all dependency groups from `uv2nix`:
 
 ```nix
-packages.${system}.dev = scope.mkVenv {
+packages.${system}.dev = scope.venv {
   name = "my-project-dev-env";
   dependencies = project.workspace.deps.all;
 };
@@ -110,7 +142,7 @@ packages.${system}.dev = scope.mkVenv {
 Use a custom dependency selection when upstream `uv2nix` exposes one you need:
 
 ```nix
-packages.${system}.docs = scope.mkVenv {
+packages.${system}.docs = scope.venv {
   name = "my-project-docs-env";
   dependencies = { my-project = [ "docs" ]; };
 };
@@ -119,7 +151,7 @@ packages.${system}.docs = scope.mkVenv {
 ## Run pytest in `nix flake check`
 
 ```nix
-checks.${system}.pytest = scope.mkPytestCheck {
+checks.${system}.pytest = scope.check.pytest {
   package = "my-project";
 };
 ```
@@ -127,7 +159,7 @@ checks.${system}.pytest = scope.mkPytestCheck {
 Common options:
 
 ```nix
-checks.${system}.pytest = scope.mkPytestCheck {
+checks.${system}.pytest = scope.check.pytest {
   package = "my-project";
   groups = [ "test" ];
   paths = [ "tests" ];
@@ -153,7 +185,7 @@ Expose an editable venv in a dev shell:
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkVenv {
+    (scope.venv {
       name = "my-project-dev-env";
       editable = {
         root = "$PWD";
@@ -199,7 +231,7 @@ editable = {
 Include dev/test dependencies in editable environment:
 
 ```nix
-(scope.mkVenv {
+(scope.venv {
   name = "my-project-dev-env";
   editable = {
     root = "$PWD";
@@ -209,9 +241,9 @@ Include dev/test dependencies in editable environment:
 })
 ```
 
-Do not run `uv sync` into a uvloom `mkVenv` environment. uvloom venvs are built by Nix in the store from `uv.lock`; `uv sync` manages a separate mutable `.venv` and does not use uv2nix overlays or Nix-built packages. In one dev shell, choose one model:
+Do not run `uv sync` into a uvloom `venv` environment. uvloom venvs are built by Nix in the store from `uv.lock`; `uv sync` manages a separate mutable `.venv` and does not use uv2nix overlays or Nix-built packages. In one dev shell, choose one model:
 
-- `scope.mkVenv` for a Nix-built uvloom environment.
+- `scope.venv` for a Nix-built uvloom environment.
 - `uv sync` for a normal mutable uv environment outside uvloom.
 
 Mixing both usually leaves two virtual environments on `PATH`, causing imports and console scripts to disagree.
@@ -281,7 +313,7 @@ Common flake overlay:
 
 ```nix
 let
-  project = uvloom.lib.loadProject { root = ./.; };
+  project = uvloom.lib.project.load { root = ./.; };
 in
 {
   overlays.default = project.nixpkgs.overlay {
@@ -385,8 +417,8 @@ from tqdm import tqdm
 Load and build it:
 
 ```nix
-script = uvloom.lib.loadScript {
-  script = ./scripts/progress.py;
+script = uvloom.lib.inline.load {
+  path = ./scripts/progress.py;
 };
 
 scope = script.forPython {
@@ -394,7 +426,7 @@ scope = script.forPython {
   interpreter = pkgs.python312;
 };
 
-packages.${system}.progress = scope.mkApplication { };
+packages.${system}.progress = scope.app { };
 ```
 
 For development, put the script dependency venv in a shell and run the working-tree file with Python:
@@ -402,7 +434,7 @@ For development, put the script dependency venv in a shell and run the working-t
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkVenv { })
+    (scope.venv { })
   ];
 };
 ```
@@ -419,7 +451,7 @@ If you want a command alias in the dev shell, add an editable application. `path
 ```nix
 devShells.${system}.default = pkgs.mkShell {
   packages = [
-    (scope.mkEditableApplication { path = "scripts/progress.py"; })
+    (scope.app.editable { path = "scripts/progress.py"; })
   ];
 };
 ```
@@ -429,9 +461,9 @@ nix develop
 progress
 ```
 
-`mkEditableApplication` includes a script dependency venv by default. Add `scope.mkVenv { }` separately only when you also want to run the script directly with `python scripts/progress.py`.
+`app.editable` includes a script dependency venv by default. Add `scope.venv { }` separately only when you also want to run the script directly with `python scripts/progress.py`.
 
-`loadScript` expects a uv script lock at `./scripts/progress.py.lock` by default. Create or refresh it with uv:
+`inline.load` expects a uv script lock at `./scripts/progress.py.lock` by default. Create or refresh it with uv:
 
 ```sh
 uv lock --script scripts/progress.py
@@ -440,7 +472,7 @@ uv lock --script scripts/progress.py
 Load every `.py` script in a directory:
 
 ```nix
-scripts = uvloom.lib.loadScripts { root = ./scripts; };
+scripts = uvloom.lib.inline.fromDir { root = ./scripts; };
 progressScope = scripts.progress.forPython { inherit pkgs; };
 ```
 
@@ -450,9 +482,9 @@ progressScope = scripts.progress.forPython { inherit pkgs; };
 | --- | --- | --- |
 | `uvloom.forPython: unknown sourcePreference ...` | `sourcePreference` is not supported by build-system overlays. | Use `"wheel"` or `"sdist"`. |
 | `uvloom.forPython: overlays must be a list` | `overlays` got an attrset or function directly. | Wrap overlays in `[ ... ]`. |
-| `uvloom.mkVenv: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$PWD";`. |
-| `uvloom.mkApplication: could not infer package; candidates: ...` | Workspace has multiple local packages. | Pass `package = "..."`. |
-| `uvloom.mkPytestCheck: package ... not found` | Package name does not match a local package. | Check `[project].name` and workspace members. |
+| `uvloom.venv: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$PWD";`. |
+| `uvloom.app: could not infer package; candidates: ...` | Workspace has multiple local packages. | Pass `package = "..."`. |
+| `uvloom.check.pytest: package ... not found` | Package name does not match a local package. | Check `[project].name` and workspace members. |
 | `could not infer interpreter for requires-python ...` | No nixpkgs Python matches metadata. | Pass a compatible `interpreter` explicitly or change `requires-python`. |
 
 ## Use lower-level uv2nix APIs

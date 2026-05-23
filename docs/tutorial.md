@@ -45,7 +45,7 @@ my-project = "my_project:main"
 Then update `flake.nix` package names:
 
 ```nix
-packages.default = scope.mkApplication { package = "my-project"; };
+packages.default = scope.app { package = "my-project"; };
 ```
 
 In a multi-system flake this appears as `packages.${system}.default`.
@@ -91,7 +91,7 @@ nix flake init -t github:fornybar/uvloom#pytest
 Or add the check yourself:
 
 ```nix
-checks.${system}.pytest = scope.mkPytestCheck {
+checks.${system}.pytest = scope.check.pytest {
   package = "my-project";
 };
 ```
@@ -101,7 +101,7 @@ checks.${system}.pytest = scope.mkPytestCheck {
 Open `flake.nix`. Important lines:
 
 ```nix
-project = uvloom.lib.loadProject { root = ./.; };
+project = uvloom.lib.project.load { root = ./.; };
 
 scope = project.forPython {
   inherit pkgs;
@@ -111,7 +111,7 @@ scope = project.forPython {
 
 - `project` loads workspace metadata once.
 - `scope` selects nixpkgs, Python, dependency selection, and overlays.
-- Helpers such as `scope.mkApplication`, `scope.mkVenv`, and `scope.mkPytestCheck` become normal flake outputs.
+- Helpers such as `scope.app`, `scope.venv`, and `scope.check.pytest` become normal flake outputs.
 
 ## 7. Add a development shell
 
@@ -129,7 +129,7 @@ For an existing flake, see [Create editable development environment](how-to.md#c
 | --- | --- |
 | `package ... not found` | Match `package = "..."` to `[project].name` in `pyproject.toml`. |
 | `could not infer package; candidates: ...` | Pass `package = "..."` explicitly in multi-package workspaces. |
-| Source changes do not show up in `nix develop` | Use `scope.mkVenv { editable = { root = "$PWD"; members = [ "my-project" ]; }; }`. |
+| Source changes do not show up in `nix develop` | Use `scope.venv { editable = { root = "$PWD"; members = [ "my-project" ]; }; }`. |
 | Python version mismatch | Pass `interpreter = pkgs.python312;` or another interpreter matching `requires-python`. |
 
 ## Next steps
