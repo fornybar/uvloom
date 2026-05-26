@@ -1,6 +1,7 @@
 {
   pkgs,
   uvloom,
+  pyproject-nix,
 }:
 
 let
@@ -8,9 +9,40 @@ let
     root = ./fixtures/smiley-plot;
   };
 
+  projectWithForgeFetchSources = uvloom.lib.project.load {
+    root = ./fixtures/smiley-plot;
+    forgeFetch = null;
+  };
+
   scope = project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
+  };
+
+  nullForgeFetchScope = project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch = null;
+  };
+
+  projectForgeFetchScope = projectWithForgeFetchSources.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  omittedForgeFetchExtension = project.nixpkgs.pythonPackagesExtension {
+    packages = [ "smiley-plot" ];
+  };
+
+  nullForgeFetchExtension = project.nixpkgs.pythonPackagesExtension {
+    packages = [ "smiley-plot" ];
+    forgeFetch = null;
+  };
+
+  forgeFetchLib = import ../lib/forge-fetch {
+    inherit pyproject-nix;
+    inherit (pkgs) lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
   };
 
   environScope = project.forPython {
@@ -145,6 +177,89 @@ assert project ? nixpkgs;
 assert project.nixpkgs ? pythonPackagesExtension;
 assert project.nixpkgs ? overlay;
 assert scope ? interpreter;
+assert nullForgeFetchScope.pythonSet."smiley-plot".version == scope.pythonSet."smiley-plot".version;
+assert
+  projectForgeFetchScope.pythonSet."smiley-plot".version == scope.pythonSet."smiley-plot".version;
+assert builtins.isFunction omittedForgeFetchExtension;
+assert builtins.isFunction nullForgeFetchExtension;
+assert
+  forgeFetchLib.internal.validateConfig "auto" == {
+    mode = "auto";
+    packages = null;
+  };
+assert
+  forgeFetchLib.internal.validateConfig [ "demo" ] == {
+    mode = "explicit";
+    packages = [ "demo" ];
+  };
+assert
+  forgeFetchLib.internal.validateConfig { packages = [ "demo" ]; } == {
+    mode = "explicit";
+    packages = [ "demo" ];
+  };
+assert forgeFetchLib.internal.normalizePackageName "My_Pkg.Name" == "my-pkg-name";
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git#abcdef" == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = "abcdef";
+  };
+assert
+  forgeFetchLib.internal.parseForgeUrl "https://github.com/OWNER/REPO.git" == {
+    type = "github";
+    owner = "OWNER";
+    repo = "REPO";
+  };
+assert
+  forgeFetchLib.internal.parseForgeUrl "git@gitlab.com:OWNER/REPO.git" == {
+    type = "gitlab";
+    owner = "OWNER";
+    repo = "REPO";
+  };
+assert
+  forgeFetchLib.internal.mkFetchTreeInput {
+    attrName = "demo";
+    sourceGit = "git+https://github.com/OWNER/REPO.git#abcdef";
+  } == {
+    type = "github";
+    owner = "OWNER";
+    repo = "REPO";
+    rev = "abcdef";
+  };
+assert
+  forgeFetchLib.internal.selectPackages {
+    packages = [ "My_Pkg" ];
+    uvLock.package = [
+      {
+        name = "my-pkg";
+        source.git = "https://github.com/o/r.git#abcdef";
+      }
+    ];
+  } == [
+    {
+      attrName = "my-pkg";
+      requestedName = "My_Pkg";
+      sourceGit = "https://github.com/o/r.git#abcdef";
+    }
+  ];
+assert
+  forgeFetchLib.internal.selectAutoPackages {
+    package = [
+      {
+        name = "git-pkg";
+        source.git = "https://github.com/o/r.git#abcdef";
+      }
+      {
+        name = "registry-pkg";
+        source.registry = "https://pypi.org/simple";
+      }
+    ];
+  } == [
+    {
+      attrName = "git-pkg";
+      requestedName = "git-pkg";
+      sourceGit = "https://github.com/o/r.git#abcdef";
+    }
+  ];
 assert pkgs.lib.getExe scope.interpreter == pkgs.python312.interpreter;
 assert scope ? pythonSet;
 assert scope ? nixpkgs;

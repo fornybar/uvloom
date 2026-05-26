@@ -34,7 +34,7 @@ let
           inherit script lockPath config;
         };
       in
-      rec {
+      {
         inherit (loadedScript) name config;
 
         inherit (metadataScript) metadata;

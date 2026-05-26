@@ -1,6 +1,7 @@
 {
   pkgs,
   uvloom,
+  pyproject-nix,
 }:
 
 let
@@ -21,6 +22,12 @@ let
   scope = project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
+  };
+
+  forgeFetchLib = import ../lib/forge-fetch {
+    inherit pyproject-nix;
+    inherit (pkgs) lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
   };
 
   multiScope = multiProject.forPython {
@@ -46,6 +53,115 @@ assert fails (
     overlays = { };
   }).pythonSet
 );
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch = true;
+  }).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch = "all";
+  }).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch = { };
+  }).pythonSet
+);
+assert fails (
+  (
+    (uvloom.lib.project.load {
+      root = ./fixtures/smiley-plot;
+      forgeFetch = [ ];
+    }).forPython
+    {
+      inherit pkgs;
+      interpreter = pkgs.python312;
+    }
+  ).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch.packages = [ ];
+  }).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch.packages = [ 1 ];
+  }).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    forgeFetch = {
+      packages = [ "demo" ];
+      extra = true;
+    };
+  }).pythonSet
+);
+assert fails (
+  forgeFetchLib.internal.selectAutoPackages {
+    package = [
+      {
+        name = "dup";
+        source.git = "https://github.com/o/r.git#1";
+      }
+      {
+        name = "Dup";
+        source.git = "https://github.com/o/r.git#2";
+      }
+    ];
+  }
+);
+assert fails (
+  forgeFetchLib.internal.selectPackages {
+    packages = [ "missing" ];
+    uvLock.package = [ ];
+  }
+);
+assert fails (
+  forgeFetchLib.internal.selectPackages {
+    packages = [ "dup" ];
+    uvLock.package = [
+      {
+        name = "dup";
+        source.git = "https://github.com/o/r.git#1";
+      }
+      {
+        name = "dup";
+        source.git = "https://github.com/o/r.git#2";
+      }
+    ];
+  }
+);
+assert fails (
+  forgeFetchLib.internal.selectPackages {
+    packages = [ "plain" ];
+    uvLock.package = [
+      {
+        name = "plain";
+        source.registry = "https://pypi.org/simple";
+      }
+    ];
+  }
+);
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git");
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg#abcdef"
+);
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://example.com/o/r.git");
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group/subgroup/repo.git");
 assert fails (
   scope.venv {
     name = "bad-editable-env";

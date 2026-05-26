@@ -82,6 +82,7 @@
             system
             uvloom
             nixpkgs
+            pyproject-nix
             ;
           pkgs = nixpkgs.legacyPackages.${system};
           uvloomInput = uvloom;

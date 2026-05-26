@@ -26,6 +26,7 @@ in
       overlays ? [ ],
       environ ? { },
       stdenv ? pkgs.stdenv,
+      forgeFetchOverlay ? null,
       mkOverlay,
     }:
     let
@@ -54,6 +55,7 @@ in
             buildOverlay
             generatedOverlay
           ]
+          ++ lib.optional (forgeFetchOverlay != null) forgeFetchOverlay
           ++ checkedOverlays
         )
       );

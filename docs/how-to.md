@@ -498,3 +498,34 @@ Supported escape hatches:
 - `scope.nixpkgs.package`: one-package nixpkgs-style export.
 
 If your flake mostly needs custom `uv2nix` composition, use `uv2nix` and `pyproject-nix` directly.
+
+## Private repositories
+
+By default, uvloom fetches locked Git dependencies through Nix's forge-aware `builtins.fetchTree` support when they come from GitHub or GitLab. This lets Nix use configured access tokens, bypassing a limitation of `uv2nix` which uses `fetchGit` (due to `fetchTree` being feature-gated behind experimental flakes) for source fetching which requires setting up a `.netrc` file or configuring a git credentials helper.
+
+`forgeFetch = "auto"` applies to all locked Git packages in `uv.lock`. To limit the behavior, name packages explicitly:
+
+```nix
+project = uvloom.lib.project.load {
+  root = ./.;
+  forgeFetch = [ "my-private-package" ];
+};
+```
+
+Package names use normal Python package-name normalization, so `My_Pkg` and `my-pkg` match the same lock entry.
+
+Disable forge fetch with `null`:
+
+```nix
+project = uvloom.lib.project.load {
+  root = ./.;
+  forgeFetch = null;
+};
+```
+
+Can be applied per-scope as well. Supported sources:
+
+- GitHub and GitLab.com repositories.
+- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
+
+Unsupported sources fail during evaluation with a `forgeFetch` error. GitLab nested groups, query parameters such as `subdirectory`, submodules, and LFS are not supported.
