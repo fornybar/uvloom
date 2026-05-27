@@ -158,6 +158,8 @@ let
   scripts = uvloom.lib.inline.fromDir {
     root = ./fixtures/scripts;
   };
+
+  lockedRev = "0123456789abcdef0123456789abcdef01234567";
 in
 assert uvloom.lib.apiVersion == 2;
 assert uvloom.lib ? project;
@@ -199,27 +201,47 @@ assert
   };
 assert forgeFetchLib.internal.normalizePackageName "My_Pkg.Name" == "my-pkg-name";
 assert
-  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git#abcdef" == {
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git#${lockedRev}" == {
     url = "git+https://github.com/OWNER/REPO.git";
-    rev = "abcdef";
+    rev = lockedRev;
   };
 assert
-  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&rev=abcdef" == {
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&rev=main#${lockedRev}"
+  == {
     url = "git+https://github.com/OWNER/REPO.git";
-    rev = "abcdef";
+    rev = lockedRev;
     subdirectory = "packages/demo";
   };
 assert
-  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo#abcdef" == {
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo#${lockedRev}"
+  == {
     url = "git+https://github.com/OWNER/REPO.git";
-    rev = "abcdef";
+    rev = lockedRev;
     subdirectory = "packages/demo";
   };
 assert
-  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?rev=abcdef#subdirectory=packages/demo" == {
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?tag=pyshop-binaries%2Fv17.14.0#${lockedRev}"
+  == {
     url = "git+https://github.com/OWNER/REPO.git";
-    rev = "abcdef";
+    rev = lockedRev;
+  };
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?branch=main#${lockedRev}"
+  == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = lockedRev;
+  };
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages%2Fdemo&tag=v1.2.3#${lockedRev}"
+  == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = lockedRev;
     subdirectory = "packages/demo";
+  };
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?rev=${lockedRev}" == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = lockedRev;
   };
 assert
   forgeFetchLib.internal.parseForgeUrl "https://github.com/OWNER/REPO.git" == {
@@ -234,24 +256,30 @@ assert
     repo = "REPO";
   };
 assert
-  forgeFetchLib.internal.mkFetchTreeInput {
-    attrName = "demo";
-    sourceGit = "git+https://github.com/OWNER/REPO.git#abcdef";
-  } == {
-    type = "github";
-    owner = "OWNER";
+  forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/GROUP/SUBGROUP/REPO.git" == {
+    type = "gitlab";
+    owner = "GROUP/SUBGROUP";
     repo = "REPO";
-    rev = "abcdef";
   };
 assert
   forgeFetchLib.internal.mkFetchTreeInput {
     attrName = "demo";
-    sourceGit = "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&rev=abcdef";
+    sourceGit = "git+https://github.com/OWNER/REPO.git#${lockedRev}";
   } == {
     type = "github";
     owner = "OWNER";
     repo = "REPO";
-    rev = "abcdef";
+    rev = lockedRev;
+  };
+assert
+  forgeFetchLib.internal.mkFetchTreeInput {
+    attrName = "demo";
+    sourceGit = "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&tag=v1.0.0#${lockedRev}";
+  } == {
+    type = "github";
+    owner = "OWNER";
+    repo = "REPO";
+    rev = lockedRev;
   };
 assert
   forgeFetchLib.internal.selectPackages {
