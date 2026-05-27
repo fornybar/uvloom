@@ -56,9 +56,11 @@ let
         parsedGit = gitSource.parseGitSource entry.sourceGit;
         fetched = builtins.fetchTree (mkFetchTreeInput entry);
       in
-      if parsedGit ? subdirectory then fetched + "/${parsedGit.subdirectory}" else fetched
+      mkSourceValue parsedGit fetched
     );
   };
+
+  mkSourceValue = _parsedGit: fetched: fetched;
 
   overridePackageSrc =
     prev: name: src:
@@ -102,6 +104,7 @@ in
     inherit
       failPackage
       mkFetchTreeInput
+      mkSourceValue
       normalizePackageName
       ;
     inherit (configLib) validateConfig;

@@ -282,6 +282,13 @@ assert
     rev = lockedRev;
   };
 assert
+  forgeFetchLib.internal.mkSourceValue {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = lockedRev;
+    subdirectory = "packages/demo";
+  } "/nix/store/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-source"
+  == "/nix/store/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-source";
+assert
   forgeFetchLib.internal.selectPackages {
     packages = [ "My_Pkg" ];
     uvLock.package = [
