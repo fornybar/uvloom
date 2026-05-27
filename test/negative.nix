@@ -157,9 +157,16 @@ assert fails (
   }
 );
 assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git");
-assert fails (
-  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg#abcdef"
-);
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?branch=main#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=one#two");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=one&rev=one");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=/pkg#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=../pkg#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg//inner#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg%2Finner#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=abcdef#egg=pkg&subdirectory=pkg");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=one&rev=abcdef#subdirectory=two");
 assert fails (forgeFetchLib.internal.parseForgeUrl "https://example.com/o/r.git");
 assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group/subgroup/repo.git");
 assert fails (
