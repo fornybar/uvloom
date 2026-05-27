@@ -11,6 +11,11 @@ let
     inherit lib pyproject-nix pyproject-build-systems;
   };
 
+  forgeFetchLib = import ./forge-fetch {
+    inherit lib pyproject-nix;
+    fail = errors.fail;
+  };
+
   packageLib = import ./packages.nix {
     inherit lib;
     fail = errors.fail;
@@ -24,6 +29,7 @@ let
       interpreter ? null,
       sourcePreference ? "wheel",
       dependencies ? workspace.deps.default,
+      forgeFetch ? null,
       overlays ? [ ],
       environ ? { },
       stdenv ? pkgs.stdenv,
@@ -42,6 +48,10 @@ let
           stdenv
           ;
         requiresPythonSource = workspace;
+        forgeFetchOverlay = forgeFetchLib.mkOverlay {
+          root = workspaceRoot;
+          config = forgeFetch;
+        };
         mkOverlay =
           { sourcePreference, environ }:
           workspace.mkPyprojectOverlay {
@@ -224,6 +234,7 @@ let
               workspaceRoot
               pkgs
               sourcePreference
+              forgeFetch
               environ
               stdenv
               ;

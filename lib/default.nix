@@ -20,8 +20,12 @@ let
   };
 
   loadProject =
-    { root }:
+    {
+      root,
+      forgeFetch ? "auto",
+    }:
     let
+      projectForgeFetch = forgeFetch;
       workspace = uv2nix.lib.workspace.loadWorkspace {
         workspaceRoot = root;
       };
@@ -36,6 +40,7 @@ let
             packages ? localPackages,
             sourcePreference ? "wheel",
             dependencies ? workspace.deps.default,
+            forgeFetch ? projectForgeFetch,
             overlays ? [ ],
             environ ? { },
             stdenv ? null,
@@ -48,6 +53,7 @@ let
                 pkgs
                 sourcePreference
                 dependencies
+                forgeFetch
                 overlays
                 environ
                 ;
@@ -75,6 +81,7 @@ let
           interpreter ? null,
           sourcePreference ? "wheel",
           dependencies ? workspace.deps.default,
+          forgeFetch ? projectForgeFetch,
           overlays ? [ ],
           environ ? { },
           stdenv ? pkgs.stdenv,
@@ -86,6 +93,7 @@ let
             interpreter
             sourcePreference
             dependencies
+            forgeFetch
             overlays
             environ
             stdenv

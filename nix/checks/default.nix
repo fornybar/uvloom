@@ -6,15 +6,16 @@
   uvloom,
   nixpkgs,
   uvloomInput,
+  pyproject-nix,
   templateDirs,
 }:
 let
   evalTest = import ../../test/eval.nix {
-    inherit pkgs uvloom;
+    inherit pkgs uvloom pyproject-nix;
   };
 
   negativeTest = import ../../test/negative.nix {
-    inherit pkgs uvloom;
+    inherit pkgs uvloom pyproject-nix;
   };
 
   buildChecks = import ../../test/builds.nix {

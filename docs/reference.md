@@ -25,6 +25,7 @@ Arguments:
 | Argument | Required | Meaning |
 | --- | --- | --- |
 | `root` | Yes | Project root containing `pyproject.toml` and `uv.lock`. |
+| `forgeFetch` | No | Project-wide forge fetch config. Defaults to `"auto"`. |
 
 Returns:
 
@@ -57,6 +58,7 @@ Arguments:
 | `overlays` | `[ ]` | Extra pyproject.nix package-set overlays. Must be a list. |
 | `environ` | `{ }` | Environment passed to upstream workspace overlay. |
 | `stdenv` | `pkgs.stdenv` | stdenv used by pyproject.nix builds and checks. |
+| `forgeFetch` | project default | Override project-wide forge fetch config for this scope. |
 
 Returns scope helpers:
 
@@ -354,3 +356,25 @@ nix build
 nix flake check
 nix build .#docs
 ```
+
+## Forge fetch
+
+`forgeFetch` fetches locked Git dependencies from GitHub/GitLab through Nix's forge-aware `builtins.fetchTree` support. It defaults to `"auto"` for projects.
+
+Accepted values:
+
+| Value | Meaning |
+| --- | --- |
+| `null` | Disabled. |
+| `"auto"` | Apply to all Git packages in `uv.lock`. Default. |
+| `[ "pkg" ]` | Apply only to named packages. |
+| `{ packages = [ "pkg" ]; }` | Explicit package-list form. |
+
+Package names use Python package-name normalization.
+
+Supported sources:
+
+- GitHub and GitLab.com repositories.
+- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
+
+Unsupported sources fail during evaluation with a `forgeFetch` error. GitLab nested groups, query parameters such as `subdirectory`, submodules, and LFS are not supported. User overlays run after `forgeFetch` and can still override package attributes.
