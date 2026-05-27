@@ -52,7 +52,11 @@ let
   mkSourceEntry = entry: {
     name = entry.attrName;
     value = builtins.addErrorContext "while fetching forgeFetch package `${entry.attrName}`" (
-      builtins.fetchTree (mkFetchTreeInput entry)
+      let
+        parsedGit = gitSource.parseGitSource entry.sourceGit;
+        fetched = builtins.fetchTree (mkFetchTreeInput entry);
+      in
+      if parsedGit ? subdirectory then fetched + "/${parsedGit.subdirectory}" else fetched
     );
   };
 

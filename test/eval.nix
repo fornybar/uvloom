@@ -204,6 +204,24 @@ assert
     rev = "abcdef";
   };
 assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&rev=abcdef" == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = "abcdef";
+    subdirectory = "packages/demo";
+  };
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo#abcdef" == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = "abcdef";
+    subdirectory = "packages/demo";
+  };
+assert
+  forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git?rev=abcdef#subdirectory=packages/demo" == {
+    url = "git+https://github.com/OWNER/REPO.git";
+    rev = "abcdef";
+    subdirectory = "packages/demo";
+  };
+assert
   forgeFetchLib.internal.parseForgeUrl "https://github.com/OWNER/REPO.git" == {
     type = "github";
     owner = "OWNER";
@@ -219,6 +237,16 @@ assert
   forgeFetchLib.internal.mkFetchTreeInput {
     attrName = "demo";
     sourceGit = "git+https://github.com/OWNER/REPO.git#abcdef";
+  } == {
+    type = "github";
+    owner = "OWNER";
+    repo = "REPO";
+    rev = "abcdef";
+  };
+assert
+  forgeFetchLib.internal.mkFetchTreeInput {
+    attrName = "demo";
+    sourceGit = "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&rev=abcdef";
   } == {
     type = "github";
     owner = "OWNER";
