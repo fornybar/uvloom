@@ -377,4 +377,4 @@ Supported sources:
 - GitHub and GitLab.com repositories.
 - URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
 
-Unsupported sources fail during evaluation with a `forgeFetch` error. GitLab nested groups, query parameters such as `subdirectory`, submodules, and LFS are not supported. User overlays run after `forgeFetch` and can still override package attributes.
+Unsupported sources fail during evaluation with a `forgeFetch` error. `forgeFetch` supports locked uv Git URLs with `rev`/`branch`/`tag`, `subdirectory`, and commit fragments, including GitLab nested groups. Git submodules, Git LFS, and legacy `egg` fragments are not supported. User overlays run after `forgeFetch` and can still override package attributes.

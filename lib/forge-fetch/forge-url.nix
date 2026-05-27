@@ -5,47 +5,52 @@
 }:
 
 let
-  inherit (builtins) attrNames elemAt;
-
   forgeTypeByHost = {
     "github.com" = "github";
     "gitlab.com" = "gitlab";
   };
 
-  mkForgeInput =
-    host: owner: repo:
+  supportedHosts = builtins.attrNames forgeTypeByHost;
+
+  parseForgePath =
+    host: path:
     let
       lowerHost = lib.toLower host;
-      supportedHosts = attrNames forgeTypeByHost;
-    in
-    {
       type =
         forgeTypeByHost.${lowerHost}
           or (fail where "unsupported git host `${host}`; supported hosts: ${lib.concatStringsSep ", " supportedHosts}");
-      inherit owner;
-      repo = lib.removeSuffix ".git" repo;
-    };
 
-  forgeInputFromCapture = match: mkForgeInput (elemAt match 0) (elemAt match 1) (elemAt match 2);
+      parts = lib.splitString "/" path;
+      repo = lib.last parts;
+      owner = lib.concatStringsSep "/" (lib.init parts);
+    in
+    if builtins.length parts < 2 then
+      fail where "git forge URL must include owner and repo"
+    else if lib.any (part: part == "") parts then
+      fail where "git forge path must not contain empty segments"
+    else if type == "github" && builtins.length parts != 2 then
+      fail where "nested github forge paths are unsupported"
+    else
+      {
+        inherit type owner;
+        repo = lib.removeSuffix ".git" repo;
+      };
 in
 {
   parseForgeUrl =
     rawUrl:
     let
       url = lib.removePrefix "git+" rawUrl;
-      https = builtins.match "https?://([^/]+)/([^/]+)/([^/?#]+)(/.*)?" url;
-      ssh = builtins.match "ssh://git@([^/]+)/([^/]+)/([^/?#]+)" url;
-      scp = builtins.match "git@([^:]+):([^/]+)/([^/?#]+)" url;
+      https = builtins.match "https?://([^/]+)/([^?#]+)" url;
+      ssh = builtins.match "ssh://git@([^/]+)/([^?#]+)" url;
+      scp = builtins.match "git@([^:]+):([^?#]+)" url;
     in
     if https != null then
-      if elemAt https 3 != null then
-        fail where "nested git forge paths are unsupported in MVP"
-      else
-        forgeInputFromCapture https
+      parseForgePath (builtins.elemAt https 0) (builtins.elemAt https 1)
     else if ssh != null then
-      forgeInputFromCapture ssh
+      parseForgePath (builtins.elemAt ssh 0) (builtins.elemAt ssh 1)
     else if scp != null then
-      forgeInputFromCapture scp
+      parseForgePath (builtins.elemAt scp 0) (builtins.elemAt scp 1)
     else
       fail where "malformed or unsupported git URL `${rawUrl}`";
 }

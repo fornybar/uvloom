@@ -157,18 +157,50 @@ assert fails (
   }
 );
 assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?branch=main#abcdef");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?branch=main");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?tag=v1.2.3");
+assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=main");
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=main&tag=v1.0.0#0123456789abcdef0123456789abcdef01234567"
+);
 assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=one#two");
 assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=one&rev=one");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=#abcdef");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=/pkg#abcdef");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=../pkg#abcdef");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg//inner#abcdef");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg%2Finner#abcdef");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=abcdef#egg=pkg&subdirectory=pkg");
-assert fails (forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=one&rev=abcdef#subdirectory=two");
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?foo=bar#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?tag=pyshop-binaries%2"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=/pkg#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=../pkg#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg//inner#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=pkg%2F..%2Finner#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?lfs=true#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?submodules=true#0123456789abcdef0123456789abcdef01234567"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?rev=0123456789abcdef0123456789abcdef01234567#egg=pkg&subdirectory=pkg"
+);
+assert fails (
+  forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=one&rev=0123456789abcdef0123456789abcdef01234567#subdirectory=two"
+);
 assert fails (forgeFetchLib.internal.parseForgeUrl "https://example.com/o/r.git");
-assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group/subgroup/repo.git");
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://github.com/group/subgroup/repo.git");
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group//repo.git");
 assert fails (
   scope.venv {
     name = "bad-editable-env";
