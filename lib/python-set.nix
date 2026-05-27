@@ -8,10 +8,9 @@ let
   errors = import ./errors.nix { };
 
   pythonInterpreters = import ./interpreter.nix {
-    inherit lib;
+    inherit lib pyproject-nix;
     fail = errors.fail;
     show = errors.show;
-    pep440 = pyproject-nix.lib.pep440;
   };
 
   overlayNames = builtins.attrNames pyproject-build-systems.overlays;
