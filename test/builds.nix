@@ -60,6 +60,19 @@ let
     interpreter = pkgs.python312;
   };
 
+  virtualFlatAppProject = uvloom.lib.project.load {
+    root = ./fixtures/virtual-flat-app;
+  };
+
+  virtualFlatAppScope = virtualFlatAppProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  virtualFlatAppVenv = virtualFlatAppScope.venv {
+    name = "virtual-flat-app-env";
+  };
+
   nonPackageApplication = nonPackageScope.app {
     name = "non-package-app";
     command = [
@@ -122,6 +135,18 @@ in
   script-sdist-application = sdistScriptScope.app { };
 
   non-package-application = nonPackageApplication;
+
+  virtual-flat-app-venv = virtualFlatAppVenv;
+
+  virtual-flat-app-venv-has-dependency =
+    pkgs.runCommand "virtual-flat-app-venv-has-dependency"
+      {
+        nativeBuildInputs = [ virtualFlatAppVenv ];
+      }
+      ''
+        python -c "import colorama; print(colorama.__version__)" | grep '^0.4.6$'
+        touch $out
+      '';
 
   non-package-run =
     pkgs.runCommand "non-package-run"
