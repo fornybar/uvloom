@@ -30,6 +30,12 @@ scope = project.forPython {
 
 packages.${system}.default = scope.app { package = "my-project"; };
 checks.${system}.pytest = scope.check.pytest { package = "my-project"; };
+
+# Optional: select one executable from package venv
+packages.${system}.my-project-cli = scope.app {
+  package = "my-project";
+  script = "my-project";
+};
 ```
 
 Non-package uv project (`[tool.uv] package = false`) can use command mode:

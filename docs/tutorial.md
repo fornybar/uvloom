@@ -76,6 +76,17 @@ If you kept the template name, command is:
 ./result/bin/smiley-plot
 ```
 
+Need one app output per script from multi-script package? Use package mode with `script`:
+
+```nix
+packages.${system}.first-tool = scope.app {
+  package = "multi-script-app";
+  script = "first-tool";
+};
+```
+
+That output exposes only `bin/first-tool`.
+
 ## 5. Run checks
 
 ```sh

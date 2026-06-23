@@ -9,12 +9,21 @@ let
     root = ./fixtures/smiley-plot;
   };
 
+  multiScriptProject = uvloom.lib.project.load {
+    root = ./fixtures/multi-script-app;
+  };
+
   projectWithForgeFetchSources = uvloom.lib.project.load {
     root = ./fixtures/smiley-plot;
     forgeFetch = null;
   };
 
   scope = project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  multiScriptScope = multiScriptProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
   };
@@ -138,6 +147,32 @@ let
   customApplication = scope.app {
     pname = "custom-smiley-plot";
     version = "1.2.3";
+  };
+
+  explicitScriptVenv = scope.venv {
+    name = "smiley-plot-script-env";
+  };
+
+  scriptApplication = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+  };
+
+  scriptApplicationWithVenv = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    venv = explicitScriptVenv;
+  };
+
+  scriptPnameApplication = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    pname = "custom-smiley-plot";
+  };
+
+  multiScriptApplication = multiScriptScope.app {
+    package = "multi-script-app";
+    script = "first-tool";
   };
 
   commandApplication = scope.app {
@@ -361,6 +396,18 @@ assert defaultApplication.version == "0.1.0";
 assert builtins.isAttrs customApplication;
 assert customApplication.pname == "custom-smiley-plot";
 assert customApplication.version == "1.2.3";
+assert builtins.isAttrs scriptApplication;
+assert scriptApplication.pname == "smiley-plot";
+assert scriptApplication.version == "0.1.0";
+assert builtins.isAttrs scriptApplicationWithVenv;
+assert scriptApplicationWithVenv.pname == "smiley-plot";
+assert scriptApplicationWithVenv.version == "0.1.0";
+assert builtins.isAttrs scriptPnameApplication;
+assert scriptPnameApplication.pname == "custom-smiley-plot";
+assert scriptPnameApplication.version == "0.1.0";
+assert builtins.isAttrs multiScriptApplication;
+assert multiScriptApplication.pname == "first-tool";
+assert multiScriptApplication.version == "0.1.0";
 assert builtins.isAttrs commandApplication;
 assert commandApplication.name == "smiley-command";
 assert builtins.isAttrs (scope.check.pytest { package = "smiley-plot"; });

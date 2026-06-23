@@ -154,14 +154,20 @@ let
           venv ? null,
           pname ? null,
           version ? null,
-          name ? pname,
+          name ? null,
           command ? null,
+          script ? null,
           pythonPath ? [ ],
           workingDirectory ? workspaceRoot,
         }:
         if command != null then
+          let
+            commandName = if name != null then name else pname;
+          in
           if package != null then
             errors.fail "app" "pass either `package` or `command`, not both"
+          else if script != null then
+            errors.fail "app" "pass `script` only with package mode"
           else if builtins.isString command then
             errors.fail "app" "`command` must be a list, not a shell string"
           else if !builtins.isList command then
@@ -170,9 +176,9 @@ let
             errors.fail "app" "`command` must be a non-empty list of strings or paths"
           else if !(builtins.all (entry: builtins.isString entry || builtins.isPath entry) command) then
             errors.fail "app" "`command` must be a non-empty list of strings or paths"
-          else if name == null then
+          else if commandName == null then
             errors.fail "app" "`name` is required when using command mode"
-          else if name == "" then
+          else if commandName == "" then
             errors.fail "app" "`name` must be non-empty when using command mode"
           else if !builtins.isList pythonPath then
             errors.fail "app" "`pythonPath` must be a list of strings or paths"
@@ -180,7 +186,7 @@ let
             errors.fail "app" "`pythonPath` must be a list of strings or paths"
           else
             let
-              commandVenv = if venv == null then mkVenv { name = "${name}-env"; } else venv;
+              commandVenv = if venv == null then mkVenv { name = "${commandName}-env"; } else venv;
               commandArgs = map (entry: if builtins.isPath entry then "${entry}" else toString entry) command;
               pythonPathEntries = map (
                 entry: if builtins.isPath entry then "${entry}" else toString entry
@@ -194,7 +200,7 @@ let
                   toString workingDirectory;
             in
             pkgs.writeShellApplication {
-              inherit name;
+              name = commandName;
               runtimeInputs = [ commandVenv ];
               text = lib.concatStringsSep "\n" (
                 (lib.optional (
@@ -213,15 +219,53 @@ let
         else
           let
             packageName = packageLib.resolveLocalPackage "app" candidates pythonSet package;
+            appPackage = pythonSet.${packageName};
+            appVenv = if venv == null then mkVenv { name = "${packageName}-env"; } else venv;
           in
-          (pkgs.callPackage pyproject-nix.build.util { }).mkApplication (
-            {
-              venv = if venv == null then mkVenv { name = "${packageName}-env"; } else venv;
-              package = pythonSet.${packageName};
-            }
-            // lib.optionalAttrs (pname != null) { inherit pname; }
-            // lib.optionalAttrs (version != null) { inherit version; }
-          );
+          if script == null then
+            (pkgs.callPackage pyproject-nix.build.util { }).mkApplication (
+              {
+                venv = appVenv;
+                package = appPackage;
+              }
+              // lib.optionalAttrs (pname != null) { inherit pname; }
+              // lib.optionalAttrs (version != null) { inherit version; }
+            )
+          else if !builtins.isString script || script == "" then
+            errors.fail "app" "`script` must be a non-empty string"
+          else if lib.hasInfix "/" script then
+            errors.fail "app" "`script` must not contain `/` when using script mode"
+          else if name != null then
+            errors.fail "app" "`name` cannot be used with `script`; the output binary name is `script`"
+          else if pname != null && (!builtins.isString pname || pname == "") then
+            errors.fail "app" "`pname` must be a non-empty string when using script mode"
+          else if pname != null && lib.hasInfix "/" pname then
+            errors.fail "app" "`pname` must not contain `/` when using script mode"
+          else
+            let
+              appName = script;
+              appPname = if pname != null then pname else script;
+              appVersion = if version != null then version else appPackage.version;
+              sourceScript = "${appVenv}/bin/${script}";
+            in
+            pkgs.runCommand "${appPname}-${appVersion}"
+              {
+                pname = appPname;
+                version = appVersion;
+                meta = appPackage.meta or { };
+                passthru = appPackage.passthru or { };
+              }
+              ''
+                mkdir -p "$out/bin"
+                source_script=${lib.escapeShellArg sourceScript}
+                if [ ! -x "$source_script" ]; then
+                  echo ${lib.escapeShellArg "uvloom.app: script `${script}` not found in venv for package `${packageName}`"} >&2
+                  exit 1
+                fi
+
+                target_name=${lib.escapeShellArg appName}
+                ln -s "$source_script" "$out/bin/$target_name"
+              '';
 
       mkPytestCheck =
         {

@@ -8,7 +8,16 @@ let
     root = ./fixtures/smiley-plot;
   };
 
+  multiScriptProject = uvloom.lib.project.load {
+    root = ./fixtures/multi-script-app;
+  };
+
   scope = project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  multiScriptScope = multiScriptProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
   };
@@ -91,6 +100,32 @@ let
     ];
     workingDirectory = ../examples/non_package_app/utils;
   };
+
+  explicitScriptVenv = scope.venv {
+    name = "smiley-plot-script-env";
+  };
+
+  scriptApplication = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+  };
+
+  scriptApplicationWithVenv = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    venv = explicitScriptVenv;
+  };
+
+  scriptPnameApplication = scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    pname = "custom-smiley-plot";
+  };
+
+  multiScriptApplication = multiScriptScope.app {
+    package = "multi-script-app";
+    script = "first-tool";
+  };
 in
 {
   venv = scope.venv {
@@ -111,6 +146,45 @@ in
       "print('ok')"
     ];
   };
+
+  application-script = scriptApplication;
+
+  application-script-bin = pkgs.runCommand "application-script-bin" { } ''
+    test -x ${scriptApplication}/bin/smiley-plot
+    touch $out
+  '';
+
+  application-script-with-venv = scriptApplicationWithVenv;
+
+  application-script-with-venv-bin = pkgs.runCommand "application-script-with-venv-bin" { } ''
+    test -x ${scriptApplicationWithVenv}/bin/smiley-plot
+    touch $out
+  '';
+
+  application-script-pname = scriptPnameApplication;
+
+  application-script-pname-metadata = pkgs.runCommand "application-script-pname-metadata" { } ''
+    test -x ${scriptPnameApplication}/bin/smiley-plot
+    test ! -e ${scriptPnameApplication}/bin/custom-smiley-plot
+    touch $out
+  '';
+
+  application-multi-script = multiScriptApplication;
+
+  application-multi-script-selected-only =
+    pkgs.runCommand "application-multi-script-selected-only" { }
+      ''
+        test -x ${multiScriptApplication}/bin/first-tool
+        test ! -e ${multiScriptApplication}/bin/second-tool
+        touch $out
+      '';
+
+  application-multi-script-runs = pkgs.runCommand "application-multi-script-runs" { } ''
+    output="$(${multiScriptApplication}/bin/first-tool)"
+    echo "$output"
+    echo "$output" | grep -x "first-tool output"
+    touch $out
+  '';
 
   pytest = scope.check.pytest {
     package = "smiley-plot";
