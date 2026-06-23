@@ -1,0 +1,13 @@
+[project]
+name = "multi-script-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+first-tool = "multi_script_app:first"
+second-tool = "multi_script_app:second"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -238,6 +238,17 @@ assert fails (
 );
 assert fails (
   scope.app {
+    name = "bad";
+    command = [
+      "python"
+      "-c"
+      "print(1)"
+    ];
+    script = "smiley-plot";
+  }
+);
+assert fails (
+  scope.app {
     command = [
       "python"
       "-c"
@@ -288,6 +299,58 @@ assert fails (
       "src"
       { bad = true; }
     ];
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "";
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = 123;
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = [ "smiley-plot" ];
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "nested/tool";
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    name = "renamed";
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    pname = "";
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    pname = 123;
+  }
+);
+assert fails (
+  scope.app {
+    package = "smiley-plot";
+    script = "smiley-plot";
+    pname = "nested/tool";
   }
 );
 assert fails (scope.check.pytest { package = "missing"; });

@@ -6,7 +6,8 @@
 }:
 
 let
-  pep508ForInterpreter = interpreter: environ:
+  pep508ForInterpreter =
+    interpreter: environ:
     pyproject-nix.lib.pep508.setEnviron (pyproject-nix.lib.pep508.mkEnviron interpreter) environ;
 
   addDependencyGroups =
