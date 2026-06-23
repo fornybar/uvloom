@@ -148,9 +148,21 @@ Command mode accepts list commands only. Do not pass shell string like `"python 
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `package` | inferred | Local package name. May be omitted only when workspace has exactly one local package. |
+| `script` | `null` | Select one executable basename from `${venv}/bin/${script}`. When set, output exposes only `$out/bin/${script}`. |
 | `venv` | generated | Virtual environment used by wrapper. |
-| `pname` | package metadata | Override output package name. |
+| `pname` | package metadata | Override derivation `pname`. In script mode this does not rename output binary. |
 | `version` | package metadata | Override output version. |
+
+#### Script mode notes
+
+When `script` is set in package mode:
+
+- uvloom links exactly one executable from `${venv}/bin/${script}` into `$out/bin/${script}`.
+- `script` selects executable basename from venv `bin`; executable may come from project scripts, dependency installs, or other build-time executables in venv.
+- Output binary name is always `script`.
+- `name` is rejected in script mode.
+- `pname` controls derivation metadata only.
+- Omitting `script` keeps existing package mode behavior (all executables from package app output).
 
 #### Command mode arguments
 
@@ -172,6 +184,11 @@ Command mode accepts list commands only. Do not pass shell string like `"python 
 - `command` passed as shell string
 - `command` not list / empty list / contains values that are not strings or paths
 - command mode used without `name`/`pname`
+- `script` passed with command mode
+- `script` not non-empty string
+- `script` contains `/` in script mode
+- `name` passed together with `script`
+- script-mode `pname` not non-empty string or contains `/`
 
 ### `scope.check.pytest`
 

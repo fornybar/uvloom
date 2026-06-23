@@ -88,6 +88,38 @@ packages.${system}.default = scope.app {
 };
 ```
 
+## Build one app for one console script
+
+Use this when package exposes multiple scripts and you want one command per Nix app output.
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "multi-script-app"
+
+[project.scripts]
+first-tool = "multi_script_app:first"
+second-tool = "multi_script_app:second"
+```
+
+`flake.nix` snippet:
+
+```nix
+packages.${system}.first-tool = scope.app {
+  package = "multi-script-app";
+  script = "first-tool";
+};
+```
+
+Result contains only `$out/bin/first-tool`.
+
+In script mode, binary rename not supported:
+
+- output binary name always `script`
+- `name` is rejected
+- `pname` changes derivation metadata only
+
 ## Build app for non-package uv project (`[tool.uv] package = false`)
 
 Use command mode when project has no installable package and entrypoint is source file.

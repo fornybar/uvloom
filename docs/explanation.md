@@ -48,7 +48,7 @@ Use helpers for normal flake outputs:
 
 | Helper | Use for |
 | --- | --- |
-| `app` | Console-script wrappers under `packages`. |
+| `app` | Console-script wrappers under `packages`; optional `script` selects one executable from package venv. |
 | `venv` | Virtual environments under `packages` or shells, including editable development envs. |
 | `check.pytest` | pytest derivations under `checks`. |
 | `scope.nixpkgs.package` | one nixpkgs-compatible package export. |
@@ -86,6 +86,19 @@ scope.venv {
 ```
 
 Override `groups` for common cases, or `dependencies` for full control.
+
+## Package app script selection
+
+Package mode default exposes executables from package application output. For multi-script distributions, use `script` to narrow one app to one executable:
+
+```nix
+scope.app {
+  package = "multi-script-app";
+  script = "first-tool";
+}
+```
+
+Script mode creates `$out/bin/first-tool` only. Binary rename is intentionally unsupported: output binary name always equals `script`; `name` is rejected; `pname` remains metadata-only.
 
 ## Package inference
 

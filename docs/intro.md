@@ -61,7 +61,7 @@ Scope helpers become normal flake outputs:
 
 | Helper | Purpose |
 | --- | --- |
-| `scope.app` | Console-script application package. |
+| `scope.app` | Console-script application package. Supports optional `script` to expose one selected venv executable. |
 | `scope.venv` | Virtual environment, optionally editable. |
 | `scope.check.pytest` | pytest derivation for `checks`. |
 | `scope.nixpkgs.package` | One nixpkgs-compatible package export. |

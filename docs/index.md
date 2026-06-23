@@ -30,6 +30,8 @@ packages.${system}.default = scope.app { package = "my-project"; };
 checks.${system}.pytest = scope.check.pytest { package = "my-project"; };
 ```
 
+`scope.app` package mode can also select one executable with `script = "..."` when package installs multiple console scripts.
+
 ## Mental model
 
 1. `uv.lock` records Python dependencies.
