@@ -31,6 +31,7 @@ Returns:
 
 | Attribute | Meaning |
 | --- | --- |
+| `project.root` | Root path passed to `project.load`. Useful for wrappers, shells, and commands needing workspace cwd. |
 | `project.workspace` | Raw upstream `uv2nix` workspace. Escape hatch for `workspace.deps.*`, `mkPyprojectOverlay`, and related upstream APIs. |
 | `project.forPython` | Create one build scope for one nixpkgs package set and interpreter. |
 | `project.nixpkgs.pythonPackagesExtension` | Export selected locked packages as a nixpkgs Python package-set extension. |

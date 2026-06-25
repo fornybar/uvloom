@@ -38,7 +38,7 @@ let
       localPackages = builtins.attrNames workspace.deps.default;
     in
     rec {
-      inherit workspace;
+      inherit root workspace;
 
       nixpkgs = {
         pythonPackagesExtension =

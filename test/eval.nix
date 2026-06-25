@@ -206,6 +206,8 @@ assert !(uvloom.lib.inline ? dir);
 assert !(uvloom.lib ? loadProject);
 assert !(uvloom.lib ? loadScript);
 assert !(uvloom.lib ? loadScripts);
+assert project ? root;
+assert project.root == ./fixtures/smiley-plot;
 assert project ? workspace;
 assert project.workspace ? deps;
 assert project.workspace ? mkPyprojectOverlay;
