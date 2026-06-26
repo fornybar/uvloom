@@ -138,22 +138,13 @@ devShells.${system}.default = pkgs.mkShell {
     (scope.venv {
       name = "my-project-dev-env";
       editable = {
-        root = "$PWD";
         members = [ "my-project" ];
       };
     })
     pkgs.uv
   ];
 
-  env = {
-    UV_NO_SYNC = "1";
-    UV_PYTHON = pkgs.lib.getExe scope.interpreter;
-    UV_PYTHON_DOWNLOADS = "never";
-  };
-
-  shellHook = ''
-    unset PYTHONPATH
-  '';
+  shellHook = scope.hook;
 };
 ```
 

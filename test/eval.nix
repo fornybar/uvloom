@@ -371,6 +371,21 @@ assert scope ? app;
 assert !(scope ? mkApplication);
 assert scope ? check;
 assert scope.check ? pytest;
+assert scope ? hook;
+assert scope ? hooks;
+assert scope.hooks ? repoRoot;
+assert scope.hooks ? uv;
+assert scope.hooks ? python;
+assert scope.hooks ? default;
+assert scope.hook == scope.hooks.default;
+assert builtins.match ".*REPO_ROOT.*" scope.hook != null;
+assert builtins.match ".*rev-parse --show-toplevel.*" scope.hooks.repoRoot != null;
+assert builtins.match ".*UV_NO_SYNC.*" scope.hook != null;
+assert
+  builtins.match ".*${builtins.unsafeDiscardStringContext (pkgs.lib.getExe scope.interpreter)}.*" scope.hooks.uv
+  != null;
+assert builtins.match ".*UV_PYTHON_DOWNLOADS.*" scope.hook != null;
+assert builtins.match ".*PYTHONPATH.*" scope.hook != null;
 assert !(scope ? mkPytestCheck);
 assert !(project ? mkPythonPackagesExtension);
 assert !(project ? mkNixpkgsOverlay);
@@ -384,9 +399,14 @@ assert builtins.isAttrs (
   scope.venv {
     name = "smiley-plot-dev-env";
     editable = {
-      root = "$REPO_ROOT";
       members = [ "smiley-plot" ];
     };
+  }
+);
+assert builtins.isAttrs (
+  scope.venv {
+    name = "smiley-plot-dev-env-true";
+    editable = true;
   }
 );
 assert builtins.isAttrs packageApplication;
@@ -436,6 +456,13 @@ assert pkgs.lib.hasSuffix ".tar.gz" sdistScriptScope.pythonSet.tqdm.src.name;
 assert builtins.isString sdistRenderedScript;
 assert scriptScope ? venv;
 assert !(scriptScope ? mkVenv);
+assert scriptScope ? hook;
+assert scriptScope ? hooks;
+assert scriptScope ? interpreter;
+assert scriptScope.hook == scriptScope.hooks.default;
+assert
+  builtins.match ".*${builtins.unsafeDiscardStringContext (pkgs.lib.getExe scriptScope.interpreter)}.*" scriptScope.hooks.uv
+  != null;
 assert scriptScope ? render;
 assert !(scriptScope ? renderScript);
 assert scriptScope ? app;

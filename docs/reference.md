@@ -76,17 +76,24 @@ Returns scope helpers:
 
 ### `scope.interpreter`
 
-Resolved Python interpreter. Useful in dev shells:
+Resolved Python interpreter.
+
+### `scope.hook` and `scope.hooks`
+
+Shell hook fragments for Nix dev shells. `scope.hook` is the default hook:
 
 ```nix
-env = {
-  UV_NO_SYNC = "1";
-  UV_PYTHON = pkgs.lib.getExe scope.interpreter;
-  UV_PYTHON_DOWNLOADS = "never";
-};
+shellHook = scope.hook;
+```
 
+It exports `REPO_ROOT` when unset, configures `uv` to use the Nix interpreter, and unsets `PYTHONPATH`.
+
+Pieces are available as `scope.hooks.repoRoot`, `scope.hooks.uv`, and `scope.hooks.python` when you need custom composition. If you already have a shell hook, append it after `scope.hook`:
+
+```nix
 shellHook = ''
-  unset PYTHONPATH
+  ${scope.hook}
+  echo "ready"
 '';
 ```
 
@@ -106,7 +113,6 @@ Build editable virtual environment:
 scope.venv {
   name = "my-project-dev-env";
   editable = {
-    root = "$PWD";
     members = [ "my-project" ];
   };
 }
@@ -118,7 +124,7 @@ Arguments:
 | --- | --- | --- |
 | `name` | Required | Derivation/environment name. |
 | `dependencies` | parent scope `dependencies` | uv2nix dependency selection installed into the venv. |
-| `editable` | `false` | `false` for store-source venv, or an attrset like `{ root = "$PWD"; members = [ "my-project" ]; }` for working-tree source. |
+| `editable` | `false` | `false` for store-source venv, `true` for all local members with `root = "$REPO_ROOT"`, or an attrset like `{ members = [ "my-project" ]; }`. `root` defaults to `"$REPO_ROOT"` and can be overridden. |
 
 ### `scope.app`
 
@@ -346,7 +352,7 @@ Script scope helpers:
 | `scope.venv { }` | Build script virtual environment. |
 | `scope.render { }` | Render script with venv shebang. |
 | `scope.app { }` | Build runnable script application. |
-| `scope.app.editable { path ? basename, root ? "$PWD", venv ? scope.venv { } }` | Build dev-shell command that runs the live working-tree script with locked deps. |
+| `scope.app.editable { path ? basename, root ? "$REPO_ROOT", venv ? scope.venv { } }` | Build dev-shell command that runs the live working-tree script with locked deps. |
 
 ### `uvloom.lib.inline.fromDir`
 

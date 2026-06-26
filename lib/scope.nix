@@ -74,17 +74,21 @@ let
         where: editable:
         if editable == false then
           null
+        else if editable == true then
+          {
+            root = "$REPO_ROOT";
+          }
         else if builtins.isAttrs editable then
           (
             {
-              root = if editable ? root then editable.root else errors.fail where "editable.root is required";
+              root = if editable ? root then editable.root else "$REPO_ROOT";
             }
             // lib.optionalAttrs (editable ? members) {
               members = editable.members;
             }
           )
         else
-          errors.fail where "editable must be false or an attribute set";
+          errors.fail where "editable must be false, true, or an attribute set";
 
       mkEditablePythonSet =
         where: editable:
@@ -106,6 +110,31 @@ let
             }
           )
         );
+
+      hooks = rec {
+        repoRoot = ''
+          if [ -z "''${REPO_ROOT:-}" ]; then
+            REPO_ROOT="$(${lib.getExe pkgs.git} rev-parse --show-toplevel 2>/dev/null || pwd)"
+            export REPO_ROOT
+          fi
+        '';
+
+        uv = ''
+          export UV_NO_SYNC="''${UV_NO_SYNC:-1}"
+          export UV_PYTHON="${lib.getExe resolvedInterpreter}"
+          export UV_PYTHON_DOWNLOADS="''${UV_PYTHON_DOWNLOADS:-never}"
+        '';
+
+        python = ''
+          unset PYTHONPATH
+        '';
+
+        default = ''
+          ${repoRoot}
+          ${uv}
+          ${python}
+        '';
+      };
 
       mkVenv =
         {
@@ -335,6 +364,8 @@ let
       };
 
       interpreter = resolvedInterpreter;
+      hook = hooks.default;
+      inherit hooks;
 
       nixpkgs = {
         package = mkNixpkgsPackage;
