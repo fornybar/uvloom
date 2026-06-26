@@ -220,30 +220,19 @@ devShells.${system}.default = pkgs.mkShell {
     (scope.venv {
       name = "my-project-dev-env";
       editable = {
-        root = "$PWD";
         members = [ "my-project" ];
       };
     })
     pkgs.uv
   ];
 
-  env = {
-    UV_NO_SYNC = "1";
-    UV_PYTHON = pkgs.lib.getExe scope.interpreter;
-    UV_PYTHON_DOWNLOADS = "never";
-  };
-
-  shellHook = ''
-    unset PYTHONPATH
-  '';
+  shellHook = scope.hook;
 };
 ```
 
 > **Tip**
 >
-> `UV_NO_SYNC = "1"` tells `uv` not to create or update its own virtual environment inside the shell.
-> `UV_PYTHON_DOWNLOADS = "never"` keeps Python interpreter selection under Nix control.
-> `unset PYTHONPATH` avoids leaked Python paths from other Nix builds shadowing packages from the uv2nix virtualenv.
+> `scope.hook` exports `REPO_ROOT` for editable installs, sets `UV_NO_SYNC`, `UV_PYTHON`, and `UV_PYTHON_DOWNLOADS` for Nix-controlled `uv`, and unsets `PYTHONPATH` to avoid leaked Python paths shadowing packages from the uv2nix virtualenv.
 
 Enter shell:
 
@@ -255,7 +244,6 @@ Editable config is explicit. For multi-package workspaces, list editable local p
 
 ```nix
 editable = {
-  root = "$PWD";
   members = [ "my-app" "my-library" ];
 };
 ```
@@ -266,7 +254,6 @@ Include dev/test dependencies in editable environment:
 (scope.venv {
   name = "my-project-dev-env";
   editable = {
-    root = "$PWD";
     members = [ "my-project" ];
   };
   dependencies = project.workspace.deps.all;
@@ -478,7 +465,7 @@ python scripts/progress.py
 
 Script edits are picked up on the next run. Re-enter the shell only when dependencies, lock file, or interpreter change.
 
-If you want a command alias in the dev shell, add an editable application. `path` is relative to `root`; `root = "$PWD"` keeps the wrapper pointed at the live checkout:
+If you want a command alias in the dev shell, add an editable application. `path` is relative to `root`; `root = "$REPO_ROOT"` keeps the wrapper pointed at the live checkout:
 
 ```nix
 devShells.${system}.default = pkgs.mkShell {
@@ -514,7 +501,7 @@ progressScope = scripts.progress.forPython { inherit pkgs; };
 | --- | --- | --- |
 | `uvloom.forPython: unknown sourcePreference ...` | `sourcePreference` is not supported by build-system overlays. | Use `"wheel"` or `"sdist"`. |
 | `uvloom.forPython: overlays must be a list` | `overlays` got an attrset or function directly. | Wrap overlays in `[ ... ]`. |
-| `uvloom.venv: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$PWD";`. |
+| `uvloom.venv: editable.root must be a string` | Editable root was not a shell-time path string. | Use `root = "$REPO_ROOT";`. |
 | `uvloom.app: could not infer package; candidates: ...` | Workspace has multiple local packages. | Pass `package = "..."`. |
 | `uvloom.check.pytest: package ... not found` | Package name does not match a local package. | Check `[project].name` and workspace members. |
 | `could not infer interpreter for requires-python ...` | No nixpkgs Python matches metadata. | Pass a compatible `interpreter` explicitly or change `requires-python`. |

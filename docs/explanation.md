@@ -123,7 +123,6 @@ Editable mode on `venv` adds a pyproject.nix editable overlay so selected worksp
 scope.venv {
   name = "my-project-dev-env";
   editable = {
-    root = "$PWD";
     members = [ "my-project" ];
   };
 }
@@ -131,7 +130,7 @@ scope.venv {
 
 Use editable mode for dev shells, REPLs, language servers, and fast test loops. Avoid using it for release packages because it intentionally points at a mutable working tree.
 
-`root` is a string on purpose. `"$PWD"` is resolved by the shell at use time, so the environment follows the checkout path instead of a Nix store path.
+Editable `root` defaults to `"$REPO_ROOT"`, a runtime shell variable. `scope.hook` exports `REPO_ROOT` for dev shells so the environment follows the checkout path instead of a Nix store path. Override `editable.root` only for nonstandard layouts.
 
 Do not combine uvloom `venv` environments with `uv sync`. A uvloom venv is a Nix store output built through uv2nix; `uv sync` creates or mutates a separate `.venv` and bypasses uv2nix overlays, package fixes, and Nix-built dependencies. Use `uv lock` to update the lock file, then rebuild or reload the Nix shell so uvloom can rebuild its environment from `uv.lock`.
 

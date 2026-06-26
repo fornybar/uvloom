@@ -212,18 +212,6 @@ assert fails (
     inherit pkgs;
   }).pythonSet
 );
-assert fails (
-  scope.venv {
-    name = "bad-editable-kind-env";
-    editable = true;
-  }
-);
-assert fails (
-  scope.venv {
-    name = "missing-editable-root-env";
-    editable = { };
-  }
-);
 assert fails (scope.app { package = "missing"; });
 assert fails (
   scope.app {

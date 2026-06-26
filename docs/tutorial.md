@@ -140,7 +140,7 @@ For an existing flake, see [Create editable development environment](how-to.md#c
 | --- | --- |
 | `package ... not found` | Match `package = "..."` to `[project].name` in `pyproject.toml`. |
 | `could not infer package; candidates: ...` | Pass `package = "..."` explicitly in multi-package workspaces. |
-| Source changes do not show up in `nix develop` | Use `scope.venv { editable = { root = "$PWD"; members = [ "my-project" ]; }; }`. |
+| Source changes do not show up in `nix develop` | Use `scope.venv { editable = { members = [ "my-project" ]; }; }` and `shellHook = scope.hook;`. |
 | Python version mismatch | Pass `interpreter = pkgs.python312;` or another interpreter matching `requires-python`. |
 
 ## Next steps

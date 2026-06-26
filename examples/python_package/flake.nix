@@ -38,7 +38,6 @@
       venv = scope.venv {
         name = "smiley-plot-dev-env";
         editable = {
-          root = "$PWD";
           members = [ "smiley-plot" ];
         };
       };
@@ -51,15 +50,7 @@
           venv
           pkgs.uv
         ];
-        env = {
-          UV_NO_SYNC = "1";
-          UV_PYTHON = pkgs.lib.getExe scope.interpreter;
-          UV_PYTHON_DOWNLOADS = "never";
-        };
-
-        shellHook = ''
-          unset PYTHONPATH
-        '';
+        shellHook = scope.hook;
       };
     };
 }

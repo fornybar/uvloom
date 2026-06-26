@@ -72,7 +72,32 @@ let
                 };
             };
 
-            inherit (pythonSetCore) pythonSet;
+            inherit (pythonSetCore) resolvedInterpreter pythonSet;
+
+            hooks = rec {
+              repoRoot = ''
+                if [ -z "''${REPO_ROOT:-}" ]; then
+                  REPO_ROOT="$(${lib.getExe pkgs.git} rev-parse --show-toplevel 2>/dev/null || pwd)"
+                  export REPO_ROOT
+                fi
+              '';
+
+              uv = ''
+                export UV_NO_SYNC="''${UV_NO_SYNC:-1}"
+                export UV_PYTHON="${lib.getExe resolvedInterpreter}"
+                export UV_PYTHON_DOWNLOADS="''${UV_PYTHON_DOWNLOADS:-never}"
+              '';
+
+              python = ''
+                unset PYTHONPATH
+              '';
+
+              default = ''
+                ${repoRoot}
+                ${uv}
+                ${python}
+              '';
+            };
 
             mkVenv =
               { }:
@@ -98,7 +123,7 @@ let
             mkEditableApplication =
               {
                 name ? loadedScript.name,
-                root ? "$PWD",
+                root ? "$REPO_ROOT",
                 path ? baseNameOf scriptPath,
                 venv ? mkVenv { },
               }:
@@ -118,6 +143,9 @@ let
 
             venv = mkVenv;
             render = renderScript;
+            interpreter = resolvedInterpreter;
+            hook = hooks.default;
+            inherit hooks;
             app = {
               __functor = self: mkApplication;
               editable = mkEditableApplication;
