@@ -42,6 +42,7 @@ let
       stdenv ? pkgs.stdenv,
     }:
     let
+      scopeDependencies = dependencies;
       candidates = packageLib.localNames workspace;
 
       pythonSetCore = pythonSetLib.build {
@@ -62,7 +63,8 @@ let
         mkOverlay =
           { sourcePreference, environ }:
           workspace.mkPyprojectOverlay {
-            inherit sourcePreference dependencies environ;
+            inherit sourcePreference environ;
+            dependencies = scopeDependencies;
           };
       };
 
@@ -108,7 +110,7 @@ let
       mkVenv =
         {
           name,
-          dependencies ? workspace.deps.default,
+          dependencies ? scopeDependencies,
           editable ? false,
         }:
         let

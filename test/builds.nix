@@ -17,6 +17,12 @@ let
     interpreter = pkgs.python312;
   };
 
+  scopeWithAllDependencies = project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    dependencies = project.workspace.deps.all;
+  };
+
   multiScriptScope = multiScriptProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
@@ -131,6 +137,11 @@ in
   venv = scope.venv {
     name = "smiley-plot-env";
   };
+
+  venv-inherits-scope-dependencies = pkgs.runCommand "venv-inherits-scope-dependencies" { } ''
+    ${scopeWithAllDependencies.venv { name = "smiley-plot-all-env"; }}/bin/python -c "import pytest"
+    touch $out
+  '';
 
   application = scope.app {
     package = "smiley-plot";

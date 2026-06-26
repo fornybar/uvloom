@@ -117,7 +117,7 @@ Arguments:
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `name` | Required | Derivation/environment name. |
-| `dependencies` | `project.workspace.deps.default` | uv2nix dependency selection. |
+| `dependencies` | parent scope `dependencies` | uv2nix dependency selection installed into the venv. |
 | `editable` | `false` | `false` for store-source venv, or an attrset like `{ root = "$PWD"; members = [ "my-project" ]; }` for working-tree source. |
 
 ### `scope.app`
@@ -314,7 +314,7 @@ Arguments:
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `path` | Required | Python script containing inline metadata. |
-| `lockPath` | `.lock` | uv script lock file. |
+| `lockPath` | `path + ".lock"` | uv script lock file, for example `./scripts/tool.py.lock`. |
 | `config` | `{ }` | uv2nix script config overrides. |
 
 Returns:
