@@ -1,0 +1,11 @@
+[project]
+name = "Foo-Pkg"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+license = { file = "LICENSE" }
+license-files = ["COPYING*", "licenses/*", "legal/LICEN[CS]E*", "./NOTICE*"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

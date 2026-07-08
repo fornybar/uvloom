@@ -12,6 +12,14 @@ let
     root = ./fixtures/multi-script-app;
   };
 
+  # Build-level coverage for filterSource: the venv below builds a wheel
+  # from the filtered store copy, proving the whitelist keeps everything
+  # a real backend build needs (not just what the eval asserts inspect).
+  filteredProject = uvloom.lib.project.load {
+    root = ./fixtures/smiley-plot;
+    filterSource = true;
+  };
+
   scope = project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
@@ -24,6 +32,11 @@ let
   };
 
   multiScriptScope = multiScriptProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  filteredScope = filteredProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
   };
@@ -137,6 +150,15 @@ in
   venv = scope.venv {
     name = "smiley-plot-env";
   };
+
+  filtered-venv = filteredScope.venv {
+    name = "smiley-plot-filtered-env";
+  };
+
+  filtered-venv-imports = pkgs.runCommand "filtered-venv-imports" { } ''
+    ${filteredScope.venv { name = "smiley-plot-filtered-env"; }}/bin/python -c "import smiley_plot"
+    touch $out
+  '';
 
   venv-inherits-scope-dependencies = pkgs.runCommand "venv-inherits-scope-dependencies" { } ''
     ${scopeWithAllDependencies.venv { name = "smiley-plot-all-env"; }}/bin/python -c "import pytest"

@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "dir-source-app"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "localdep" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "localdep", directory = "vendored/localdep" }]
+
+[[package]]
+name = "localdep"
+version = "0.1.0"
+source = { directory = "vendored/localdep" }

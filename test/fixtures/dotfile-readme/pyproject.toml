@@ -1,0 +1,10 @@
+[project]
+name = "dotfile-readme"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+readme = ".github/README.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

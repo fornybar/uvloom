@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "symlink-member"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "linkdep" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "linkdep", directory = "linkdep" }]
+
+[[package]]
+name = "linkdep"
+version = "0.1.0"
+source = { directory = "linkdep" }

@@ -1,0 +1,1 @@
+directories must be skipped by root license scans

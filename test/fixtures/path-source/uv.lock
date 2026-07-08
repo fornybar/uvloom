@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "localwheel"
+version = "0.1.0"
+source = { path = "vendored/localwheel-0.1.0-py3-none-any.whl" }
+
+[[package]]
+name = "path-source-app"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "localwheel" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "localwheel", path = "vendored/localwheel-0.1.0-py3-none-any.whl" }]

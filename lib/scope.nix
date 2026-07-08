@@ -31,19 +31,70 @@ let
     {
       workspace,
       workspaceRoot ? null,
+      sourceRoot ? workspaceRoot,
       uvLock ? null,
       pkgs,
       interpreter ? null,
       sourcePreference ? "wheel",
-      dependencies ? workspace.deps.default,
+      dependencies ? null,
       forgeFetch ? null,
       overlays ? [ ],
       environ ? { },
       stdenv ? pkgs.stdenv,
     }:
     let
-      scopeDependencies = dependencies;
+      # Keep an explicit scope dependency selection authoritative.  Without
+      # one, editable development environments follow uv's normal default of
+      # enabling each local package's `dev` group when it exists.
+      scopeDependencies = if dependencies == null then workspace.deps.default else dependencies;
+      scopeDependenciesExplicit = dependencies != null;
       candidates = packageLib.localNames workspace;
+
+      sourceOverrideOverlay =
+        final: prev:
+        if sourceRoot == null || workspaceRoot == null || sourceRoot == workspaceRoot || uvLock == null then
+          { }
+        else
+          let
+            sourceOf = pkg: pkg.source or { };
+            localPath = source: source.editable or source.directory or source.virtual or null;
+            filteredLocalSrc =
+              pkg:
+              let
+                path = localPath (sourceOf pkg);
+              in
+              if path == null then
+                null
+              else if path == "." then
+                sourceRoot
+              else
+                sourceRoot + "/${path}";
+            filteredPathSrc =
+              pkg:
+              let
+                source = sourceOf pkg;
+              in
+              if source ? path then
+                {
+                  outPath = "${sourceRoot + "/${source.path}"}";
+                  passthru.url = source.path;
+                }
+              else
+                null;
+            overrideFor =
+              pkg:
+              let
+                localSrc = filteredLocalSrc pkg;
+                pathSrc = filteredPathSrc pkg;
+                src = if localSrc != null then localSrc else pathSrc;
+              in
+              lib.optionalAttrs (src != null && builtins.hasAttr pkg.name prev) {
+                ${pkg.name} = prev.${pkg.name}.overrideAttrs (_: {
+                  inherit src;
+                });
+              };
+          in
+          lib.foldl' lib.recursiveUpdate { } (map overrideFor (uvLock.package or [ ]));
 
       pythonSetCore = pythonSetLib.build {
         where = "forPython";
@@ -62,10 +113,10 @@ let
         };
         mkOverlay =
           { sourcePreference, environ }:
-          workspace.mkPyprojectOverlay {
+          lib.composeExtensions (workspace.mkPyprojectOverlay {
             inherit sourcePreference environ;
             dependencies = scopeDependencies;
-          };
+          }) sourceOverrideOverlay;
       };
 
       inherit (pythonSetCore) checkedOverlays resolvedInterpreter pythonSet;
@@ -101,14 +152,48 @@ let
               errors.fail where "editable.root must be a string";
         in
         pythonSet.overrideScope (
-          workspace.mkEditablePyprojectOverlay (
-            {
-              root = checkedRoot;
-            }
-            // lib.optionalAttrs (editableConfig ? members) {
-              members = editableConfig.members;
-            }
-          )
+          lib.composeExtensions
+            # Editable wheels need the editables backend requirement.  Apply
+            # it to every local editable/directory lock entry, not only
+            # workspace.deps.default (which excludes directory dependencies).
+            (
+              final: prev:
+              let
+                localNames =
+                  if uvLock == null then
+                    [ ]
+                  else
+                    lib.unique (
+                      map (pkg: pkg.name) (
+                        lib.filter (
+                          pkg:
+                          let
+                            source = pkg.source or { };
+                          in
+                          source ? editable || source ? directory
+                        ) (uvLock.package or [ ])
+                      )
+                    );
+              in
+              lib.filterAttrs (name: _: prev ? ${name}) (
+                lib.genAttrs localNames (
+                  name:
+                  prev.${name}.overrideAttrs (old: {
+                    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ final.resolveBuildSystem { editables = [ ]; };
+                  })
+                )
+              )
+            )
+            (
+              workspace.mkEditablePyprojectOverlay (
+                {
+                  root = checkedRoot;
+                }
+                // lib.optionalAttrs (editableConfig ? members) {
+                  members = editableConfig.members;
+                }
+              )
+            )
         );
 
       hooks = rec {
@@ -139,13 +224,24 @@ let
       mkVenv =
         {
           name,
-          dependencies ? scopeDependencies,
+          dependencies ? null,
           editable ? false,
         }:
         let
           venvPythonSet = if editable == false then pythonSet else mkEditablePythonSet "venv" editable;
+          effectiveDependencies =
+            if dependencies != null then
+              dependencies
+            else if editable != false && !scopeDependenciesExplicit then
+              lib.zipAttrsWith (_: groups: lib.unique (lib.concatLists groups)) [
+                workspace.deps.default
+                (lib.mapAttrs (_: groups: lib.optional (builtins.elem "dev" groups) "dev") workspace.deps.groups)
+              ]
+            else
+              scopeDependencies;
           resolvedDependencies = venvDependencies.resolve {
-            inherit dependencies uvLock environ;
+            dependencies = effectiveDependencies;
+            inherit uvLock environ;
             interpreter = resolvedInterpreter;
           };
         in
@@ -318,6 +414,8 @@ let
             inherit
               workspace
               workspaceRoot
+              sourceRoot
+              uvLock
               pkgs
               sourcePreference
               forgeFetch

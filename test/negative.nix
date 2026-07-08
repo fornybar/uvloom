@@ -30,6 +30,11 @@ let
     fail = where: message: throw "uvloom.${where}: ${message}";
   };
 
+  filterSourceLib = import ../lib/filter-source.nix {
+    inherit (pkgs) lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
+  };
+
   multiScope = multiProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
@@ -39,6 +44,126 @@ let
     path = ./fixtures/scripts/example.py;
   };
 in
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/bad-license-glob;
+    filterSource = true;
+  }).sourceRoot
+);
+# Dot segments do not neutralize an escape: `./../LICENSE*` still leaves
+# the project root and is rejected.
+assert fails (filterSourceLib.internal.parsedPattern "./../LICENSE*");
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/string-license-files;
+    filterSource = true;
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/missing-member;
+    filterSource = true;
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/empty-root;
+    filterSource = true;
+  }).sourceRoot
+);
+# readme = "" normalizes to the project root; whitelisting it must fail
+# loudly instead of silently including the entire root tree.
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/empty-readme;
+    filterSource = true;
+  }).sourceRoot
+);
+# extraSourcePaths entries normalizing to the root are rejected for the
+# same reason.
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = true;
+    extraSourcePaths = [ "." ];
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = "yes";
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = true;
+    extraSourcePaths = "tests";
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = true;
+    extraSourcePaths = [ 1 ];
+  }).sourceRoot
+);
+# A [project].license-files glob matching zero files is an error (PEP 639
+# backends reject non-matching patterns rather than silently dropping them).
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/no-match-license-glob;
+    filterSource = true;
+  }).sourceRoot
+);
+# Symlinked source dirs would pass pathExists but lib.fileset copies the
+# symlink as a dangling leaf — both a uv.lock member source and an
+# extraSourcePaths entry that is a symlink must fail loudly instead.
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/symlink-member;
+    filterSource = true;
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/symlink-extra;
+    filterSource = true;
+    extraSourcePaths = [ "linked" ];
+  }).sourceRoot
+);
+# Symlinks anywhere below an inferred source tree are rejected, not only at
+# the tree root: fileset would otherwise preserve a dangling leaf.
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/symlink-nested-source;
+    filterSource = true;
+  }).sourceRoot
+);
+# Declared singleton metadata must be a regular file, never a symlink.
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/symlink-declared-readme;
+    filterSource = true;
+  }).sourceRoot
+);
+# extraSourcePaths entries escaping the project root are rejected loudly
+# (fileset.toSource cannot reach outside root; a silent drop would produce
+# a store copy with dangling paths).
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = true;
+    extraSourcePaths = [ "../outside" ];
+  }).sourceRoot
+);
+assert fails (
+  (uvloom.lib.project.load {
+    root = ./fixtures/flat-package;
+    filterSource = true;
+    extraSourcePaths = [ "/abs" ];
+  }).sourceRoot
+);
 assert fails (
   (project.forPython {
     inherit pkgs;

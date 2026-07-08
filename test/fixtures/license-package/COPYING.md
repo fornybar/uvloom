@@ -1,0 +1,1 @@
+Copying text for fixture.
