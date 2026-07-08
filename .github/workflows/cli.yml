@@ -1,0 +1,120 @@
+name: cli
+
+on:
+  push:
+    branches: [main]
+    paths: ['cli/**', 'lib/**', 'nix/**', 'test/**', 'docs/**', 'README.md', 'justfile', 'flake.*', 'templates/**', 'examples/**', '.github/workflows/cli.yml']
+  pull_request:
+    branches: [main]
+    paths: ['cli/**', 'lib/**', 'nix/**', 'test/**', 'docs/**', 'README.md', 'justfile', 'flake.*', 'templates/**', 'examples/**', '.github/workflows/cli.yml']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Published systems: x86_64/aarch64 Linux and Darwin (nix/systems.nix).
+# Coverage: full E2E on x86_64 Linux; native build, unit, and fast E2E on
+# aarch64 Darwin. The other published systems use identical Nix definitions
+# but do not have native GitHub-hosted coverage.
+jobs:
+  cli-linux-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@456688f15bc354bef6d396e4a35f4f89d40bf2b7 # v31.8.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+        with:
+          # FlakeHub auth needs id-token: write, which these jobs don't
+          # grant; keep the GitHub Actions cache backend only.
+          use-flakehub: false
+      - run: nix build .#uvloom-cli
+      - name: Build standalone non-flake package
+        run: nix-build cli/default.nix
+      - name: Check pins.json matches flake.lock
+        # The CLI ships pinned input revisions; they must track flake.lock.
+        run: |
+          drift=0
+          for name in nixpkgs pyproject-nix uv2nix pyproject-build-systems; do
+            lock="$(jq -r --arg n "$name" '.nodes[$n].locked | "\(.rev) \(.narHash)"' flake.lock)"
+            pin="$(jq -r --arg n "$name" '.[$n] | "\(.rev) \(.narHash)"' cli/src/uvloom_cli/data/pins.json)"
+            if [ "$lock" != "$pin" ]; then
+              echo "::error::pins.json drift for $name: flake.lock has '$lock' but pins.json has '$pin'"
+              drift=1
+            fi
+          done
+          if [ "$drift" -ne 0 ]; then
+            echo "cli/src/uvloom_cli/data/pins.json is out of date; run 'just pins-update' and commit the result."
+            exit 1
+          fi
+
+  cli-linux-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [python311, python312, python313]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@456688f15bc354bef6d396e4a35f4f89d40bf2b7 # v31.8.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Run unit tests on ${{ matrix.python }}
+        run: nix shell --inputs-from . nixpkgs#uv nixpkgs#${{ matrix.python }} -c uv run --locked --directory cli --group dev pytest tests/unit -q
+
+  cli-linux-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@456688f15bc354bef6d396e4a35f4f89d40bf2b7 # v31.8.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+        with:
+          use-flakehub: false
+      - name: Build CLI
+        run: nix build .#uvloom-cli -o result-cli
+      - name: Run full E2E tests
+        env:
+          # Generous hard cap catches catastrophic warm-path regressions
+          # without making normal GitHub runner variation flaky.
+          UVLOOM_E2E_LAT_HARD_MS: "1000"
+          UVLOOM_E2E_BIN: ${{ github.workspace }}/result-cli/bin/uvloom
+        run: nix shell --inputs-from . nixpkgs#uv nixpkgs#python312 -c uv run --locked --directory cli --group dev pytest tests/e2e -q --junitxml=e2e-junit.xml
+      - name: Upload E2E junit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-junit
+          path: cli/e2e-junit.xml
+          if-no-files-found: ignore
+
+  cli-macos-arm64:
+    # macos-14 is GitHub's arm64 macOS runner.
+    runs-on: macos-14
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: cachix/install-nix-action@456688f15bc354bef6d396e4a35f4f89d40bf2b7 # v31.8.2
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+        with:
+          use-flakehub: false
+      - name: Build CLI
+        run: nix build .#uvloom-cli -o result-cli
+      - name: Run Python 3.11 unit tests
+        run: nix shell --inputs-from . nixpkgs#uv nixpkgs#python311 -c uv run --locked --directory cli --group dev pytest tests/unit -q
+      - name: Run fast E2E tests
+        env:
+          UVLOOM_E2E_LAT_HARD_MS: "1000"
+          UVLOOM_E2E_BIN: ${{ github.workspace }}/result-cli/bin/uvloom
+        run: nix shell --inputs-from . nixpkgs#uv nixpkgs#python311 -c uv run --locked --directory cli --group dev pytest tests/e2e -q -m 'not slow'

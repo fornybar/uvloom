@@ -36,7 +36,7 @@ docs-clean:
 # pins from flake.lock and re-prefetch flake-compat + uv2nix_hammer_overrides
 # Usage: just pins-update
 pins-update:
-  tmp="$(mktemp cli/src/uvloom_cli/data/pins.json.XXXXXX)"; \
+  tmp="$(mktemp)"; \
   { \
     for name in nixpkgs pyproject-nix uv2nix pyproject-build-systems; do \
       jq --arg n "$name" '{($n): (.nodes[$n].locked | {owner, repo, rev, narHash})}' flake.lock; \
@@ -49,3 +49,22 @@ pins-update:
     && mv "$tmp" cli/src/uvloom_cli/data/pins.json \
     || { rm -f "$tmp"; exit 1; }
   @echo "Updated cli/src/uvloom_cli/data/pins.json"
+
+# Run the CLI unit test suite exactly as CI does
+# Usage: just cli-test
+cli-test:
+  nix shell --inputs-from . nixpkgs#uv nixpkgs#python312 -c uv run --locked --directory cli --group dev pytest tests/unit -q
+
+# Run the CLI end-to-end test suite exactly as CI does: pre-build the CLI
+# and point the suite at it via UVLOOM_E2E_BIN
+# Usage: just cli-e2e
+cli-e2e:
+  nix build .#uvloom-cli -o result-cli
+  UVLOOM_E2E_BIN="$PWD/result-cli/bin/uvloom" nix shell --inputs-from . nixpkgs#uv nixpkgs#python312 -c uv run --locked --directory cli --group dev pytest tests/e2e -q
+
+# Run only the fast E2E tests (deselects the `slow` marker: cold Nix builds,
+# full matrix) — same invocation shape as cli-e2e
+# Usage: just cli-e2e-fast
+cli-e2e-fast:
+  nix build .#uvloom-cli -o result-cli
+  UVLOOM_E2E_BIN="$PWD/result-cli/bin/uvloom" nix shell --inputs-from . nixpkgs#uv nixpkgs#python312 -c uv run --locked --directory cli --group dev pytest tests/e2e -q -m 'not slow'
