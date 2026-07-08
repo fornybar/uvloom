@@ -1,0 +1,8 @@
+.venv
+.uvloom/
+.venv-uvloom.json
+.venv-uvloom.lock
+.venv-uvloom-check.lock
+*.py.uvloom.json
+__pycache__/
+.pytest_cache/

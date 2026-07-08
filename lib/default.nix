@@ -124,7 +124,7 @@ let
           {
             packages ? localPackages,
             sourcePreference ? "wheel",
-            dependencies ? workspace.deps.default,
+            dependencies ? null,
             forgeFetch ? projectForgeFetch,
             overlays ? [ ],
             environ ? { },
@@ -165,7 +165,7 @@ let
           pkgs,
           interpreter ? null,
           sourcePreference ? "wheel",
-          dependencies ? workspace.deps.default,
+          dependencies ? null,
           forgeFetch ? projectForgeFetch,
           overlays ? [ ],
           environ ? { },

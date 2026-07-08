@@ -1,0 +1,38 @@
+{
+  "nixpkgs": {
+    "owner": "NixOS",
+    "repo": "nixpkgs",
+    "rev": "15f4ee454b1dce334612fa6843b3e05cf546efab",
+    "narHash": "sha256-Ad49moKWeXtKBJNy2ebiTQUEgdLyvGmTeykAQ9xM+Z4="
+  },
+  "pyproject-nix": {
+    "owner": "pyproject-nix",
+    "repo": "pyproject.nix",
+    "rev": "69f57f27e52a87c54e28138a75ec741cd46663c9",
+    "narHash": "sha256-Gs1VnEkCkkRZxJQAC/Dhz0Jbfi22mFXChbtNg9w/Ybg="
+  },
+  "uv2nix": {
+    "owner": "pyproject-nix",
+    "repo": "uv2nix",
+    "rev": "5ad90d48b80ecc920ca2247d53f46beba302e186",
+    "narHash": "sha256-KebDsQd+A7pm++Tp0744EjULttHvz1wbKqNKkMA/088="
+  },
+  "pyproject-build-systems": {
+    "owner": "pyproject-nix",
+    "repo": "build-system-pkgs",
+    "rev": "ffaa2161dd5d63e0e94591f86b54fc239660fb2e",
+    "narHash": "sha256-qapCOQmR++yZSY43dzrp3wCrkOTLpod+ONtJWBk6iKU="
+  },
+  "flake-compat": {
+    "owner": "edolstra",
+    "repo": "flake-compat",
+    "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+    "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns="
+  },
+  "uv2nix_hammer_overrides": {
+    "owner": "TyberiusPrime",
+    "repo": "uv2nix_hammer_overrides",
+    "rev": "8aa81000fc9d9b6b49845f2acc44a943edc7ae77",
+    "narHash": "sha256-vhfkXWBnOK4030gGte+4wMono254UUJEkE1xMFOuFXw="
+  }
+}
