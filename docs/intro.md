@@ -1,6 +1,6 @@
 # uvloom guide
 
-uvloom is a thin Nix library for Python projects that use `uv` and `uv2nix`. It removes repeated setup code while keeping control in your flake.
+This guide covers the **library path**: uvloom is a thin Nix library for Python projects that use `uv` and `uv2nix`. It removes repeated setup code while keeping control in your flake. For onboarding and a local `add`/`sync`/`run` loop without writing Nix first, use the [CLI path](cli.md).
 
 You still choose nixpkgs, Python, dependency groups, overlays, packages, checks, shells, editable venvs, and exports.
 
@@ -9,7 +9,7 @@ You still choose nixpkgs, Python, dependency groups, overlays, packages, checks,
 - You already have `pyproject.toml` and `uv.lock`.
 - You want short flakes for applications, virtual environments, checks, or dev shells.
 - You want access to underlying pyproject.nix package sets for overrides.
-- You do not want to adopt `flake-parts`, `flake-utils`, or another flake framework.
+- You want helpers that work in a plain flake and compose with an optional framework such as `flake-parts`.
 
 Use upstream `uv2nix` directly when you need full manual control over every composition step.
 
@@ -40,6 +40,37 @@ Use upstream `uv2nix` directly when you need full manual control over every comp
 ```
 
 For multi-system flakes, define `project` once outside the per-system function, then create a `scope` inside each system.
+
+### Optional `flake-parts` composition
+
+uvloom is a library, not a flake-framework module. When an owned flake already uses `flake-parts`, one module can inject a scope and another can consume it:
+
+```nix
+outputs = inputs@{ flake-parts, uvloom, ... }:
+  let
+    project = uvloom.lib.project.load { root = ./.; };
+  in
+  flake-parts.lib.mkFlake { inherit inputs; } {
+    systems = [ "x86_64-linux" "aarch64-linux" ];
+    imports = [
+      {
+        perSystem = { pkgs, ... }: {
+          _module.args.uvloomScope = project.forPython {
+            inherit pkgs;
+            interpreter = pkgs.python312;
+          };
+        };
+      }
+      {
+        perSystem = { uvloomScope, ... }: {
+          packages.default = uvloomScope.app { package = "my-project"; };
+        };
+      }
+    ];
+  };
+```
+
+No framework is required; the plain-flake form above remains the smallest complete setup.
 
 ## Core model
 

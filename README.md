@@ -6,6 +6,11 @@ uvloom is a small Nix library for Python projects that use [`uv`](https://docs.a
 
 Use uvloom when you want less `uv2nix` boilerplate.
 
+Choose the path that matches the job:
+
+- **CLI:** install `uvloom` for onboarding and the local `uv`-style loop (`add`, `sync`, `run`) without first writing a flake.
+- **Library:** add the `uvloom` flake input to a flake you own when you need declared CI or deployment packages, checks, dev shells, overlays, and other composable Nix outputs.
+
 ## Quick start
 
 Start from a template:
@@ -63,6 +68,20 @@ Initialize one:
 ```sh
 nix flake init -t github:fornybar/uvloom#pytest
 ```
+
+## uvloom CLI
+
+uvloom also ships a command-line tool of the same name. It runs uv projects on NixOS without writing any Nix: uv's commands, a Nix-built environment at `.venv`, native wheels included.
+
+```sh
+nix profile install github:fornybar/uvloom#uvloom-cli
+uvloom sync
+uvloom run my-cmd
+```
+
+Local packages are editable by default, build failures come back as a suggested `uv.nix` fix instead of a Nix trace, and `uvloom flakify` writes a regular uvloom flake when you outgrow the CLI.
+
+See the [CLI guide](https://fornybar.github.io/uvloom/cli.html) for details.
 
 ## Documentation
 

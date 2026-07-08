@@ -14,6 +14,20 @@ inputs = {
 };
 ```
 
+### Deduplicate a nested consumer input
+
+If another input, `hops`, publicly exposes its own `uvloom` input, make it follow the root copy:
+
+```nix
+inputs = {
+  uvloom.url = "github:fornybar/uvloom";
+  hops.url = "github:example/hops";
+  hops.inputs.uvloom.follows = "uvloom";
+};
+```
+
+Analogous `follows` declarations work only for inputs the nested flake actually exposes. Do not guess a follows path for an implementation-only dependency; inspect that flake's declared inputs first.
+
 Load project once, then create a scope per system:
 
 ```nix
@@ -208,6 +222,22 @@ Run:
 nix flake check
 ```
 
+`scope.check.pytest` is a hermetic Nix build. Tests in this output must not require network access, service credentials, or mutable runner state. For authenticated integration tests, expose a built venv and run its pytest from the CI runner instead:
+
+```nix
+packages.${system}.integration-env = scope.venv {
+  name = "my-project-integration-env";
+  dependencies = { my-project = [ "integration" ]; };
+};
+```
+
+```sh
+nix build .#integration-env
+SERVICE_TOKEN="$SERVICE_TOKEN" ./result/bin/pytest tests/integration
+```
+
+The dependencies remain Nix-built, while execution is deliberately non-hermetic and receives credentials from the runner's secret environment. Never place secrets in Nix expressions or derivation arguments.
+
 ## Create editable development environment
 
 Use editable mode when imports and console scripts should see working-tree source without rebuilding package derivations after every edit.
@@ -247,6 +277,8 @@ editable = {
   members = [ "my-app" "my-library" ];
 };
 ```
+
+Warm edits to imported `.py` files need no venv rebuild. Changes to editable-install metadata — console-script entry points, package discovery, or other relevant `pyproject.toml` fields — require rebuilding the venv (and re-entering the shell) so generated metadata and launchers refresh. Dependency changes also require updating `uv.lock` before rebuilding.
 
 Include dev/test dependencies in editable environment:
 
