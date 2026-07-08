@@ -59,7 +59,7 @@
       packages = forAllSystems (
         system:
         import ./nix/packages {
-          inherit lib self;
+          inherit lib uvloom;
           pkgs = nixpkgs.legacyPackages.${system};
           templateDirs = templates.dirs;
         }

@@ -62,6 +62,10 @@ buildChecks
 // {
   docs = self.packages.${system}.docs;
 
+  # Cover the CLI package in `nix flake check`: --no-build evals the
+  # derivation, a full check builds it.
+  uvloom-cli = self.packages.${system}.uvloom-cli;
+
   eval = pkgs.runCommand "uvloom-eval" { } ''
     ${if evalTest then "touch $out" else "false"}
   '';

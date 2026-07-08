@@ -1,8 +1,8 @@
 {
   lib,
   pkgs,
-  self,
   templateDirs,
+  uvloom,
 }:
 let
   preferredTemplateOrder = [
@@ -89,8 +89,24 @@ let
       - [Reference](reference.md) lists helper arguments and defaults.
     ''
   );
+
+  cliProject = uvloom.lib.project.load {
+    root = ../../cli;
+    filterSource = true;
+  };
+  cliScope = cliProject.forPython { inherit pkgs; };
+  cliApp = cliScope.app {
+    package = "uvloom-cli";
+    script = "uvloom";
+  };
 in
 {
+  uvloom-cli = import ../../cli {
+    inherit pkgs;
+    app = cliApp;
+    uv = pkgs.uv;
+  };
+
   docs =
     pkgs.runCommand "uvloom-docs"
       {
@@ -108,6 +124,7 @@ in
         cp ${../../docs/reference.md} src/reference.md
         cp ${../../docs/explanation.md} src/explanation.md
         cp ${../../docs/intro.md} src/intro.md
+        cp ${../../docs/cli.md} src/cli.md
         cp ${templateDocs} src/templates.md
 
         nixdoc \
@@ -127,6 +144,7 @@ in
 
         - [Tutorial](tutorial.md)
         - [How-to guides](how-to.md)
+        - [CLI](cli.md)
 
         # Reference
 
