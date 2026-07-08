@@ -41,6 +41,36 @@ let
     interpreter = pkgs.python312;
   };
 
+  # CLI itself has a dev-only pytest dependency. These three environments
+  # prove library semantics: editable defaults opt into dev; non-editable
+  # defaults and explicit dependency selections retain the old omission.
+  cliProject = uvloom.lib.project.load { root = ../cli; };
+  cliScope = cliProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+  cliEditableDefaultVenv = cliScope.venv {
+    name = "cli-editable-default-dev";
+    editable = true;
+  };
+  cliNonEditableDefaultVenv = cliScope.venv {
+    name = "cli-noneditable-default-no-dev";
+  };
+  cliExplicitDefaultVenv = cliScope.venv {
+    name = "cli-editable-explicit-no-dev";
+    editable = true;
+    dependencies = cliProject.workspace.deps.default;
+  };
+  # Match CLI driver's workspace-default rendering. Unlike generic library
+  # defaults, CLI follows `uv sync` and enables root dev even non-editable.
+  cliDriverDefaultDependencies = cliProject.workspace.deps.default // {
+    "uvloom-cli" = pkgs.lib.unique ((cliProject.workspace.deps.default."uvloom-cli" or [ ]) ++ [ "dev" ]);
+  };
+  cliDriverNonEditableDefaultVenv = cliScope.venv {
+    name = "cli-driver-noneditable-default-dev";
+    dependencies = cliDriverDefaultDependencies;
+  };
+
   pkgsWithOverlay = pkgs.extend (
     project.nixpkgs.overlay {
       packages = [ "smiley-plot" ];
@@ -254,6 +284,30 @@ in
         python -c "import colorama; print(colorama.__version__)" | grep '^0.4.6$'
         touch $out
       '';
+
+  editable-default-includes-dev =
+    pkgs.runCommand "editable-default-includes-dev" { nativeBuildInputs = [ cliEditableDefaultVenv ]; } ''
+      python -c 'import pytest'
+      touch $out
+    '';
+
+  noneditable-default-omits-dev =
+    pkgs.runCommand "noneditable-default-omits-dev" { nativeBuildInputs = [ cliNonEditableDefaultVenv ]; } ''
+      ! python -c 'import pytest'
+      touch $out
+    '';
+
+  editable-explicit-dependencies-omit-dev =
+    pkgs.runCommand "editable-explicit-dependencies-omit-dev" { nativeBuildInputs = [ cliExplicitDefaultVenv ]; } ''
+      ! python -c 'import pytest'
+      touch $out
+    '';
+
+  cli-driver-noneditable-default-includes-dev =
+    pkgs.runCommand "cli-driver-noneditable-default-includes-dev" { nativeBuildInputs = [ cliDriverNonEditableDefaultVenv ]; } ''
+      python -c 'import pytest'
+      touch $out
+    '';
 
   non-package-run =
     pkgs.runCommand "non-package-run"

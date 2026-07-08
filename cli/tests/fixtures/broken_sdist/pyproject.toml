@@ -1,0 +1,19 @@
+[project]
+name = "broken-sdist-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["needs-pkgconf"]
+
+[tool.uv]
+package = false
+no-binary = true
+
+[tool.uv.sources]
+needs-pkgconf = { workspace = true }
+
+[tool.uv.workspace]
+members = ["pkgs/needs-pkgconf"]
+
+# Hammer is disabled via `--no-hammer` on the e2e sync invocations: this
+# fixture isolates the *user* uv.nix override layer (spec metric 4a) — the
+# failure and its fix must come from uv.nix alone.

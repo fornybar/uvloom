@@ -1,0 +1,25 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[manifest]
+members = [
+    "broken-sdist-app",
+    "needs-pkgconf",
+]
+
+[[package]]
+name = "broken-sdist-app"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "needs-pkgconf" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "needs-pkgconf", editable = "pkgs/needs-pkgconf" }]
+
+[[package]]
+name = "needs-pkgconf"
+version = "0.1.0"
+source = { editable = "pkgs/needs-pkgconf" }

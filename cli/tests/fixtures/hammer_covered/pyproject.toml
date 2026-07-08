@@ -1,0 +1,12 @@
+[project]
+name = "hammer-covered-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["wrapt==1.16.0"]
+
+[tool.uv]
+package = false
+# Force the sdist path: wrapt's sdist declares no PEP 517 hints uv2nix can
+# use, so it only builds when the pinned hammer collection supplies the
+# setuptools build-system override (spec metric 4b).
+no-binary = true
