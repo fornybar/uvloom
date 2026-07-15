@@ -6,5 +6,8 @@ dependencies = [
   "colorama>=0.4.6",
 ]
 
+[dependency-groups]
+dev = ["typing-extensions"]
+
 [tool.uv]
 package = false
