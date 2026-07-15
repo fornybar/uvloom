@@ -1,6 +1,5 @@
 {
   lib,
-  uv2nix,
   pyproject-nix,
   pyproject-build-systems,
 }:
@@ -22,16 +21,10 @@ let
     fail = errors.fail;
   };
 
-  venvDependencies = import ./venv-dependencies.nix {
-    inherit lib uv2nix pyproject-nix;
-    fail = errors.fail;
-  };
-
   makeScope =
     {
       workspace,
       workspaceRoot ? null,
-      uvLock ? null,
       pkgs,
       interpreter ? null,
       sourcePreference ? "wheel",
@@ -144,12 +137,8 @@ let
         }:
         let
           venvPythonSet = if editable == false then pythonSet else mkEditablePythonSet "venv" editable;
-          resolvedDependencies = venvDependencies.resolve {
-            inherit dependencies uvLock environ;
-            interpreter = resolvedInterpreter;
-          };
         in
-        venvPythonSet.mkVirtualEnv name resolvedDependencies;
+        venvPythonSet.mkVirtualEnv name dependencies;
 
       hacks = pkgs.callPackage pyproject-nix.build.hacks { };
 

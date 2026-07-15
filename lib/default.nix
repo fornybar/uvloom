@@ -9,7 +9,6 @@ let
   makeScope = import ./scope.nix {
     inherit
       lib
-      uv2nix
       pyproject-nix
       pyproject-build-systems
       ;
@@ -31,7 +30,6 @@ let
     }:
     let
       projectForgeFetch = forgeFetch;
-      uvLock = uv2nix.lib.lock1.parseLock (builtins.fromTOML (builtins.readFile (root + "/uv.lock")));
       workspace = uv2nix.lib.workspace.loadWorkspace {
         workspaceRoot = root;
       };
@@ -95,7 +93,6 @@ let
         makeScope {
           inherit
             workspace
-            uvLock
             pkgs
             interpreter
             sourcePreference
