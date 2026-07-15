@@ -14,16 +14,49 @@ let
     acc: name: groups:
     acc // { ${name} = lib.unique ((acc.${name} or [ ]) ++ groups); };
 
-  dependencyNamesForVirtualPackage =
+  dependencyGroupValue =
+    value:
+    if value == null then
+      [ ]
+    else if builtins.isList value then
+      value
+    else
+      [ value ];
+
+  dependencyGroups =
+    dep: (dependencyGroupValue (dep.extra or null)) ++ (dependencyGroupValue (dep.extras or null));
+
+  dependencyGroupsByName =
+    deps:
+    builtins.foldl' (
+      acc: dep: if dep ? name then addDependencyGroups acc dep.name (dependencyGroups dep) else acc
+    ) { } deps;
+
+  mergeRequestedDependencyGroups =
+    activeDeps: requestedDeps:
+    let
+      requestedGroups = dependencyGroupsByName requestedDeps;
+    in
+    map (
+      dep:
+      dep
+      // {
+        extra = lib.unique ((dependencyGroups dep) ++ (requestedGroups.${dep.name} or [ ]));
+      }
+    ) activeDeps;
+
+  dependencyEntriesForVirtualPackage =
     pkg: groups:
-    lib.unique (
-      (map (dep: dep.name) pkg.dependencies)
-      ++ lib.concatMap (
-        group:
-        (map (dep: dep.name) (pkg.optional-dependencies.${group} or [ ]))
-        ++ (map (dep: dep.name) (pkg.dev-dependencies.${group} or [ ]))
-      ) groups
-    );
+    (mergeRequestedDependencyGroups (pkg.dependencies or [ ]) (pkg.metadata.requires-dist or [ ]))
+    ++ lib.concatMap (
+      group:
+      (mergeRequestedDependencyGroups (pkg.optional-dependencies.${group} or [ ]) (
+        pkg.metadata.requires-dist or [ ]
+      ))
+      ++ (mergeRequestedDependencyGroups (pkg.dev-dependencies.${group} or [ ]) (
+        pkg.metadata.requires-dev.${group} or [ ]
+      ))
+    ) groups;
 
   activeVirtualPackages =
     {
@@ -73,8 +106,8 @@ in
         virtualPackage = getVirtualPackage virtualPackages name;
       in
       if virtualPackage != null then
-        builtins.foldl' (acc': depName: addDependencyGroups acc' depName [ ]) acc (
-          dependencyNamesForVirtualPackage virtualPackage groups
+        builtins.foldl' (acc': dep: addDependencyGroups acc' dep.name (dependencyGroups dep)) acc (
+          dependencyEntriesForVirtualPackage virtualPackage groups
         )
       else
         addDependencyGroups acc name groups

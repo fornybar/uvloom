@@ -1,0 +1,23 @@
+[project]
+name = "virtual-root-extras"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  # Covers workspace dependency groups recorded only in `metadata.requires-dev`.
+  "group-package[test]",
+  # Covers optional extras recorded as `extra` in active lock dependencies.
+  "sample-package[test]",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+group-package = {workspace = true}
+sample-package = {workspace = true}
+
+[tool.uv.workspace]
+members = ["packages/group-package", "packages/sample-package"]

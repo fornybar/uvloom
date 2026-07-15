@@ -79,13 +79,27 @@ let
     root = ./fixtures/virtual-flat-app;
   };
 
+  virtualRootExtrasProject = uvloom.lib.project.load {
+    root = ./fixtures/virtual-root-extras;
+  };
+
   virtualFlatAppScope = virtualFlatAppProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+  };
+
+  virtualRootExtrasScope = virtualRootExtrasProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
   };
 
   virtualFlatAppVenv = virtualFlatAppScope.venv {
     name = "virtual-flat-app-env";
+  };
+
+  virtualRootExtrasVenv = virtualRootExtrasScope.venv {
+    name = "virtual-root-extras-env";
+    dependencies.virtual-root-extras = [ "dev" ];
   };
 
   nonPackageApplication = nonPackageScope.app {
@@ -230,6 +244,16 @@ in
       }
       ''
         python -c "import colorama; print(colorama.__version__)" | grep '^0.4.6$'
+        touch $out
+      '';
+
+  virtual-root-extras-venv-has-extra-dependencies =
+    pkgs.runCommand "virtual-root-extras-venv-has-extra-dependencies"
+      {
+        nativeBuildInputs = [ virtualRootExtrasVenv ];
+      }
+      ''
+        python -c "import pytest, typing_extensions"
         touch $out
       '';
 
