@@ -126,6 +126,8 @@ Arguments:
 | `dependencies` | parent scope `dependencies` | uv2nix dependency selection installed into the venv. |
 | `editable` | `false` | `false` for store-source venv, `true` for all local members with `root = "$REPO_ROOT"`, or an attrset like `{ members = [ "my-project" ]; }`. `root` defaults to `"$REPO_ROOT"` and can be overridden. |
 
+Virtual projects remain in the dependency selection. uv2nix propagates their dependencies without installing the virtual project itself.
+
 ### `scope.app`
 
 Build application wrapper from local package (package mode) or explicit command (command mode).

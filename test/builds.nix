@@ -88,6 +88,11 @@ let
     name = "virtual-flat-app-env";
   };
 
+  virtualFlatAppDevVenv = virtualFlatAppScope.venv {
+    name = "virtual-flat-app-dev-env";
+    dependencies.virtual-flat-app = [ "dev" ];
+  };
+
   nonPackageApplication = nonPackageScope.app {
     name = "non-package-app";
     command = [
@@ -230,6 +235,17 @@ in
       }
       ''
         python -c "import colorama; print(colorama.__version__)" | grep '^0.4.6$'
+        ! python -c "import importlib.metadata; importlib.metadata.version('virtual-flat-app')"
+        touch $out
+      '';
+
+  virtual-flat-app-venv-has-dependency-group =
+    pkgs.runCommand "virtual-flat-app-venv-has-dependency-group"
+      {
+        nativeBuildInputs = [ virtualFlatAppDevVenv ];
+      }
+      ''
+        python -c "import colorama, typing_extensions"
         touch $out
       '';
 
