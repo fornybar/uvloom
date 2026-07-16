@@ -287,6 +287,78 @@ let
                 ln -s "$source_script" "$out/bin/$target_name"
               '';
 
+      mkCheckCommand =
+        where: defaultName:
+        {
+          package ? null,
+          groups ? [ "test" ],
+          dependencies ? null,
+          name ? null,
+          command ? null,
+          env ? { },
+          nativeBuildInputs ? [ ],
+        }:
+        if builtins.isString command || !builtins.isList command || command == [ ] then
+          errors.fail where "`command` must be a non-empty list of strings or paths"
+        else if !(builtins.all (entry: builtins.isString entry || builtins.isPath entry) command) then
+          errors.fail where "`command` must be a non-empty list of strings or paths"
+        else
+          let
+            packageName = packageLib.requireLocalPackage where candidates (
+              packageLib.inferLocalPackage where candidates package
+            );
+            testDependencies = if dependencies == null then { ${packageName} = groups; } else dependencies;
+            testScope = makeScope {
+              inherit
+                workspace
+                workspaceRoot
+                pkgs
+                sourcePreference
+                forgeFetch
+                environ
+                stdenv
+                ;
+              interpreter = resolvedInterpreter;
+              dependencies = testDependencies;
+              overlays = checkedOverlays;
+            };
+            resolvedPackageName =
+              packageLib.requirePythonSetPackage where candidates testScope.pythonSet
+                packageName;
+            checkVenv = testScope.venv {
+              name = "${resolvedPackageName}-${defaultName}-env";
+              dependencies = testDependencies;
+            };
+            commandArgs = map (entry: if builtins.isPath entry then "${entry}" else toString entry) command;
+          in
+          stdenv.mkDerivation {
+            name = if name == null then "${resolvedPackageName}-${defaultName}" else name;
+            inherit env;
+            src = testScope.pythonSet.${resolvedPackageName}.src;
+            nativeBuildInputs = [ checkVenv ] ++ nativeBuildInputs;
+            dontConfigure = true;
+            buildPhase = ''
+              runHook preBuild
+              ${lib.escapeShellArgs commandArgs}
+              runHook postBuild
+            '';
+            installPhase = ''
+              touch $out
+            '';
+          };
+
+      mkCommandCheck =
+        {
+          package ? null,
+          groups ? [ "test" ],
+          dependencies ? null,
+          name ? null,
+          command ? null,
+          env ? { },
+          nativeBuildInputs ? [ ],
+        }@args:
+        mkCheckCommand "check.command" "check" args;
+
       mkPytestCheck =
         {
           package ? null,
@@ -294,52 +366,56 @@ let
           dependencies ? null,
           name ? null,
           paths ? [ "tests" ],
-          pytestFlags ? [ ],
+          flags ? [ ],
           env ? { },
           nativeBuildInputs ? [ ],
-        }:
-        let
-          packageName = packageLib.requireLocalPackage "check.pytest" candidates (
-            packageLib.inferLocalPackage "check.pytest" candidates package
-          );
-          testDependencies = if dependencies == null then { ${packageName} = groups; } else dependencies;
-          testScope = makeScope {
-            inherit
-              workspace
-              workspaceRoot
-              pkgs
-              sourcePreference
-              forgeFetch
-              environ
-              stdenv
-              ;
-            interpreter = resolvedInterpreter;
-            dependencies = testDependencies;
-            overlays = checkedOverlays;
-          };
-          resolvedPackageName =
-            packageLib.requirePythonSetPackage "check.pytest" candidates testScope.pythonSet
-              packageName;
-          pytestVenv = testScope.venv {
-            name = "${resolvedPackageName}-pytest-env";
-            dependencies = testDependencies;
-          };
-        in
-        stdenv.mkDerivation {
-          name = if name == null then "${resolvedPackageName}-pytest" else name;
-          inherit env;
-          src = testScope.pythonSet.${resolvedPackageName}.src;
-          nativeBuildInputs = [ pytestVenv ] ++ nativeBuildInputs;
-          dontConfigure = true;
-          buildPhase = ''
-            runHook preBuild
-            pytest ${lib.escapeShellArgs paths} ${lib.escapeShellArgs pytestFlags}
-            runHook postBuild
-          '';
-          installPhase = ''
-            touch $out
-          '';
-        };
+        }@args:
+        mkCheckCommand "check.pytest" "pytest" (
+          (builtins.removeAttrs args [
+            "paths"
+            "flags"
+          ])
+          // {
+            command = [ "pytest" ] ++ paths ++ flags;
+          }
+        );
+
+      mkUnittestCheck =
+        {
+          package ? null,
+          groups ? [ "test" ],
+          dependencies ? null,
+          name ? null,
+          directory ? "tests",
+          pattern ? "test*.py",
+          topLevel ? null,
+          flags ? [ ],
+          env ? { },
+          nativeBuildInputs ? [ ],
+        }@args:
+        mkCheckCommand "check.unittest" "unittest" (
+          (builtins.removeAttrs args [
+            "directory"
+            "pattern"
+            "topLevel"
+            "flags"
+          ])
+          // {
+            command = [
+              "python"
+              "-m"
+              "unittest"
+              "discover"
+              "-s"
+              directory
+              "-p"
+              pattern
+            ]
+            ++ lib.optional (topLevel != null) "-t"
+            ++ lib.optional (topLevel != null) topLevel
+            ++ flags;
+          }
+        );
     in
     {
       inherit
@@ -349,7 +425,9 @@ let
       venv = mkVenv;
       app = mkApplication;
       check = {
+        command = mkCommandCheck;
         pytest = mkPytestCheck;
+        unittest = mkUnittestCheck;
       };
 
       interpreter = resolvedInterpreter;

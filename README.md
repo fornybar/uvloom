@@ -2,7 +2,7 @@
 
 [![docs](https://shieldcn.dev/badge/docs-76E691.svg?logo=lu%3ABook&color=124442)](https://fornybar.github.io/uvloom/)
 
-uvloom is a small Nix library for Python projects that use [`uv`](https://docs.astral.sh/uv/) locks. It wraps [`uv2nix`](https://github.com/pyproject-nix/uv2nix) with helpers for common flake outputs: application wrappers, virtual environments, editable development shells, pytest checks, and nixpkgs-style package exports.
+uvloom is a small Nix library for Python projects that use [`uv`](https://docs.astral.sh/uv/) locks. It wraps [`uv2nix`](https://github.com/pyproject-nix/uv2nix) with helpers for common flake outputs: application wrappers, virtual environments, editable development shells, test checks, and nixpkgs-style package exports.
 
 Use uvloom when you want less `uv2nix` boilerplate.
 

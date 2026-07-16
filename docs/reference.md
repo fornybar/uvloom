@@ -69,7 +69,9 @@ Returns scope helpers:
 | `scope.pythonSet` | Final pyproject.nix package set. |
 | `scope.venv` | Build virtual environment. Accepts `editable` for working-tree source. |
 | `scope.app` | Build console-script application wrapper. |
+| `scope.check.command` | Build check derivation that runs an arbitrary command. |
 | `scope.check.pytest` | Build pytest derivation for `checks`. |
+| `scope.check.unittest` | Build conventional `unittest` discovery derivation for `checks`. |
 | `scope.nixpkgs.package` | Export and return one nixpkgs-compatible package. |
 
 ## Scope helpers
@@ -199,6 +201,22 @@ When `script` is set in package mode:
 - `name` passed together with `script`
 - script-mode `pname` not non-empty string or contains `/`
 
+### `scope.check.command`
+
+Build a check derivation around an explicit command list. Command runs from package's store source with selected test dependencies installed.
+
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `package` | inferred | Local package under test. May be omitted only when workspace has exactly one local package. |
+| `groups` | `[ "test" ]` | Optional dependency groups included when `dependencies = null`. |
+| `dependencies` | `null` | Full uv2nix dependency selection override. When null, uvloom uses `{ ${package} = groups; }`. |
+| `name` | `${package}-check` | Check derivation name. |
+| `command` | Required | Non-empty list of strings or paths. Runs without shell parsing. |
+| `env` | `{ }` | Environment variables for check derivation. |
+| `nativeBuildInputs` | `[ ]` | Extra native build inputs for check derivation. |
+
 ### `scope.check.pytest`
 
 Build pytest derivation for `checks`.
@@ -208,7 +226,7 @@ scope.check.pytest {
   package = "my-project";
   groups = [ "test" ];
   paths = [ "tests" ];
-  pytestFlags = [ "-q" ];
+  flags = [ "-q" ];
 }
 ```
 
@@ -221,9 +239,24 @@ Arguments:
 | `dependencies` | `null` | Full uv2nix dependency selection override. When null, uvloom uses `{ ${package} = groups; }`. |
 | `name` | `${package}-pytest` | Check derivation name. |
 | `paths` | `[ "tests" ]` | Paths passed to pytest. |
-| `pytestFlags` | `[ ]` | Extra pytest arguments. |
+| `flags` | `[ ]` | Extra pytest arguments. |
 | `env` | `{ }` | Environment variables for check derivation. |
 | `nativeBuildInputs` | `[ ]` | Extra native build inputs for check derivation. |
+
+### `scope.check.unittest`
+
+Build standard-library `unittest` discovery check; no pytest dependency needed. Default command: `python -m unittest discover -s tests -p 'test*.py'`.
+
+Arguments:
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `package`, `groups`, `dependencies`, `env`, `nativeBuildInputs` | Same as `scope.check.command` | Test environment configuration. |
+| `name` | `${package}-unittest` | Check derivation name. |
+| `directory` | `"tests"` | Directory where discovery starts (`unittest discover -s`). |
+| `pattern` | `"test*.py"` | File pattern used by discovery (`unittest discover -p`). |
+| `topLevel` | `null` | Optional project top-level directory (`unittest discover -t`). |
+| `flags` | `[ ]` | Extra unittest arguments. |
 
 ### `scope.pythonSet`
 

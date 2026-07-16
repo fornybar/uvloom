@@ -190,6 +190,32 @@ let
     name = "custom-smiley-pytest";
   };
 
+  defaultCommandCheck = scope.check.command {
+    command = [
+      "python"
+      "-c"
+      "from smiley_plot import smile; assert smile('nix') == ':) nix'"
+    ];
+  };
+
+  defaultUnittestCheck = scope.check.unittest { };
+
+  customCommandCheck = scope.check.command {
+    name = "custom-smiley-check";
+    command = [
+      "python"
+      "-c"
+      "pass"
+    ];
+  };
+
+  customUnittestCheck = scope.check.unittest {
+    name = "custom-smiley-unittest";
+    directory = "tests";
+    topLevel = ".";
+    flags = [ "-v" ];
+  };
+
   scripts = uvloom.lib.inline.fromDir {
     root = ./fixtures/scripts;
   };
@@ -370,7 +396,21 @@ assert !(scope ? mkVenv);
 assert scope ? app;
 assert !(scope ? mkApplication);
 assert scope ? check;
+assert scope.check ? command;
 assert scope.check ? pytest;
+assert scope.check ? unittest;
+assert !(builtins.functionArgs scope.check.command ? _where);
+assert !(builtins.functionArgs scope.check.command ? _defaultName);
+assert builtins.functionArgs scope.check.pytest ? flags;
+assert !(builtins.functionArgs scope.check.pytest ? pytestFlags);
+assert !(builtins.functionArgs scope.check.pytest ? command);
+assert builtins.functionArgs scope.check.unittest ? directory;
+assert builtins.functionArgs scope.check.unittest ? topLevel;
+assert builtins.functionArgs scope.check.unittest ? flags;
+assert !(builtins.functionArgs scope.check.unittest ? startDirectory);
+assert !(builtins.functionArgs scope.check.unittest ? topLevelDirectory);
+assert !(builtins.functionArgs scope.check.unittest ? unittestFlags);
+assert !(builtins.functionArgs scope.check.unittest ? command);
 assert scope ? hook;
 assert scope ? hooks;
 assert scope.hooks ? repoRoot;
@@ -387,6 +427,8 @@ assert
 assert builtins.match ".*UV_PYTHON_DOWNLOADS.*" scope.hook != null;
 assert builtins.match ".*PYTHONPATH.*" scope.hook != null;
 assert !(scope ? mkPytestCheck);
+assert !(scope ? mkCheckCommand);
+assert !(scope ? mkUnittestCheck);
 assert !(project ? mkPythonPackagesExtension);
 assert !(project ? mkNixpkgsOverlay);
 assert !(scope ? mkPythonPackagesExtension);
@@ -437,6 +479,12 @@ assert builtins.isAttrs defaultPytestCheck;
 assert defaultPytestCheck.name == "smiley-plot-pytest";
 assert builtins.isAttrs customPytestCheck;
 assert customPytestCheck.name == "custom-smiley-pytest";
+assert builtins.isAttrs defaultCommandCheck;
+assert defaultCommandCheck.name == "smiley-plot-check";
+assert builtins.isAttrs defaultUnittestCheck;
+assert defaultUnittestCheck.name == "smiley-plot-unittest";
+assert customCommandCheck.name == "custom-smiley-check";
+assert customUnittestCheck.name == "custom-smiley-unittest";
 assert pythonWithProjectExtension.pkgs."smiley-plot".version == "0.1.0";
 assert pkgsWithOverlay.python312Packages."smiley-plot".version == "0.1.0";
 assert (scope.nixpkgs.package { package = "smiley-plot"; }).version == "0.1.0";

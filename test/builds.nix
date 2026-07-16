@@ -208,6 +208,16 @@ in
 
   pytest-default = scope.check.pytest { };
 
+  command = scope.check.command {
+    command = [
+      "python"
+      "-c"
+      "from smiley_plot import smile; assert smile('nix') == ':) nix'"
+    ];
+  };
+
+  unittest = scope.check.unittest { };
+
   nixpkgs-package = scope.nixpkgs.package {
     package = "smiley-plot";
   };

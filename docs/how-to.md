@@ -195,7 +195,7 @@ checks.${system}.pytest = scope.check.pytest {
   package = "my-project";
   groups = [ "test" ];
   paths = [ "tests" ];
-  pytestFlags = [ "-q" ];
+  flags = [ "-q" ];
   env = {
     MY_SETTING = "test";
   };

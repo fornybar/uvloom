@@ -342,6 +342,24 @@ assert fails (
   }
 );
 assert fails (scope.check.pytest { package = "missing"; });
+assert fails (scope.check.command { });
+assert fails (scope.check.command { command = "python -m unittest"; });
+assert fails (scope.check.command { command = [ ]; });
+assert fails (
+  scope.check.command {
+    command = [
+      "python"
+      1
+    ];
+  }
+);
+assert fails (
+  scope.check.command {
+    package = "missing";
+    command = [ "true" ];
+  }
+);
+assert fails (scope.check.unittest { package = "missing"; });
 assert fails (
   scope.check.pytest {
     package = "smiley-plot";
