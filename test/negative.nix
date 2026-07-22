@@ -50,6 +50,13 @@ assert fails (
   (project.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
+    fetcher = "bad";
+  }).pythonSet
+);
+assert fails (
+  (project.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
     overlays = { };
   }).pythonSet
 );
