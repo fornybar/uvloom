@@ -54,10 +54,14 @@ let
     fail = where: message: throw "uvloom.${where}: ${message}";
   };
 
-  fakeFetch = args: {
-    inherit (args) url sha256 name;
-    evaluatorFetch = true;
-  };
+  fakeFetch =
+    args:
+    pkgs.runCommand "uvloom-evaluator-${builtins.hashString "sha256" args.url}" {
+      passthru = {
+        evaluatorFetch = true;
+        evaluatorFetchArgs = args;
+      };
+    } "mkdir -p $out";
   privateRegistryProject = uvloom.lib.project.load {
     root = ./fixtures/private-registry;
   };
@@ -85,6 +89,12 @@ let
     interpreter = privateRegistryPkgs.python312;
     evaluatorFetch = fakeFetch;
   };
+  privateRegistrySdistScope = privateRegistryProject.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    sourcePreference = "sdist";
+    evaluatorFetch = fakeFetch;
+  };
   privateRegistryNixpkgsScope = privateRegistryProject.forPython {
     pkgs = privateRegistryPkgs;
     interpreter = privateRegistryPkgs.python312;
@@ -93,7 +103,6 @@ let
   authenticatedIndexFetchLib = import ../lib/authenticated-index-fetch.nix {
     inherit (pkgs) lib;
     fail = where: message: throw "uvloom.${where}: ${message}";
-    fetch = fakeFetch;
   };
   fetchLock = {
     package = [
@@ -127,34 +136,81 @@ let
     url = "https://private.example/simple/";
     authenticate = "always";
   };
-  privateWheelOverlay = authenticatedIndexFetchLib.mkOverlay {
+  privateWheelFetchOverlay = authenticatedIndexFetchLib.mkOverlay {
     lock = fetchLock;
     uvIndexes = [ authIndex ];
+    evaluatorFetch = fakeFetch;
   };
-  privateWheel = privateWheelOverlay { } {
-    private-wheel = {
-      version = "1.0.0";
-      src = {
+  privateWheel =
+    (privateWheelFetchOverlay { } {
+      fetchurl = _: throw "base fetchurl should not be called";
+    }).fetchurl
+      {
         url = "https://private.example/packages/private-wheel-1.0.0-py3-none-any.whl";
         hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         name = "private-wheel-1.0.0-py3-none-any.whl";
       };
-    };
-  };
   privateSdist =
-    (authenticatedIndexFetchLib.mkOverlay {
-      lock = fetchLock;
-      uvIndexes = [ authIndex ];
-    })
+    (privateWheelFetchOverlay { } {
+      fetchurl = _: throw "base fetchurl should not be called";
+    }).fetchurl
+      {
+        url = "https://private.example/packages/private-wheel-1.0.0.tar.gz";
+        hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+      };
+  publicDelegation =
+    (privateWheelFetchOverlay { } {
+      fetchurl = args: {
+        delegated = true;
+        inherit args;
+      };
+    }).fetchurl
+      {
+        url = "https://files.pythonhosted.org/packages/public-wheel-1.0.0-py3-none-any.whl";
+        hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        name = "public-wheel-1.0.0-py3-none-any.whl";
+      };
+  evaluatorDirectURLDelegation =
+    (authenticatedIndexFetchLib.mkOverlay
+      {
+        lock = fetchLock;
+        uvIndexes = [ authIndex ];
+        authenticatedOnly = false;
+        evaluatorFetch = fakeFetch;
+      }
       { }
       {
-        private-wheel = {
-          src = {
-            url = "https://private.example/packages/private-wheel-1.0.0.tar.gz";
-            hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-            name = "private-wheel-1.0.0.tar.gz";
-          };
+        fetchurl = args: {
+          delegated = true;
+          inherit args;
         };
+      }
+    ).fetchurl
+      {
+        url = "https://example.com/packages/direct.whl";
+        hash = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+        name = "direct.whl";
+      };
+  evaluatorPublicFetch =
+    (authenticatedIndexFetchLib.mkOverlay
+      {
+        lock = fetchLock;
+        uvIndexes = [ authIndex ];
+        authenticatedOnly = false;
+        evaluatorFetch = fakeFetch;
+      }
+      { }
+      {
+        fetchurl = args: {
+          delegated = true;
+          inherit args;
+        };
+      }
+    ).fetchurl
+      {
+        url = "https://files.pythonhosted.org/packages/public-wheel-1.0.0-py3-none-any.whl";
+        hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        name = "public-wheel-1.0.0-py3-none-any.whl";
       };
   environScope = project.forPython {
     inherit pkgs;
@@ -222,6 +278,12 @@ let
   scriptScope = script.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
+  };
+
+  scriptEvaluatorScope = script.forPython {
+    inherit pkgs;
+    fetcher = "evaluator";
+    evaluatorFetch = fakeFetch;
   };
 
   inferredScriptScope = script.forPython {
@@ -578,40 +640,37 @@ assert builtins.isAttrs (scriptScope.app { });
 assert builtins.isAttrs (scriptScope.app.editable { path = "test/fixtures/scripts/example.py"; });
 assert scripts ? example;
 assert scripts.example.name == "example";
-assert privateWheel.private-wheel.src.evaluatorFetch;
+assert privateWheel.evaluatorFetch;
 assert
-  privateWheel.private-wheel.src.sha256
+  privateWheel.evaluatorFetchArgs.sha256
   == "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-assert privateWheel.private-wheel.src.name == "private-wheel-1.0.0-py3-none-any.whl";
-assert privateSdist.private-wheel.src.name == "private-wheel-1.0.0.tar.gz";
+assert privateWheel.evaluatorFetchArgs.name == "private-wheel-1.0.0-py3-none-any.whl";
+assert privateSdist.evaluatorFetch;
+assert
+  privateSdist.evaluatorFetchArgs.sha256
+  == "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+assert !(privateSdist.evaluatorFetchArgs ? name);
+assert publicDelegation.delegated;
+assert evaluatorPublicFetch.evaluatorFetch;
+assert evaluatorDirectURLDelegation.delegated;
+# Evaluator fetch must be part of package derivation, not only a replacement .src attribute.
+assert
+  privateRegistryScope.pythonSet.private-wheel.drvPath
+  != privateRegistryNixpkgsScope.pythonSet.private-wheel.drvPath;
 assert privateRegistryScope.pythonSet.private-wheel.src.evaluatorFetch;
 assert
-  privateRegistryScope.pythonSet.private-wheel.src.url
+  privateRegistryScope.pythonSet.private-wheel.src.evaluatorFetchArgs.url
   == "https://private.example/packages/private-wheel-1.0.0-py3-none-any.whl";
 assert
-  privateRegistryScope.pythonSet.private-wheel.src.sha256
+  privateRegistryScope.pythonSet.private-wheel.src.evaluatorFetchArgs.sha256
   == "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+assert privateRegistrySdistScope.pythonSet.private-wheel.src.evaluatorFetch;
+assert
+  privateRegistrySdistScope.pythonSet.private-wheel.src.evaluatorFetchArgs.url
+  == "https://private.example/packages/private-wheel-1.0.0.tar.gz";
+assert scriptEvaluatorScope.pythonSet.tqdm.src.evaluatorFetch;
 assert
   privateRegistryNixpkgsScope.pythonSet.private-wheel.src.outputHash
   == "sha256-qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=";
 assert privateRegistryNixpkgsScope.pythonSet.private-wheel.src.outputHashAlgo == null;
-assert
-  privateRegistryNixpkgsScope.pythonSet.private-wheel.src.hash
-  == "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-assert
-  (authenticatedIndexFetchLib.mkOverlay
-    {
-      lock = fetchLock;
-      uvIndexes = [ ];
-      authenticatedOnly = false;
-    }
-    { }
-    {
-      public-wheel.src = {
-        url = "https://files.pythonhosted.org/packages/public-wheel-1.0.0-py3-none-any.whl";
-        hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
-        name = "public-wheel-1.0.0-py3-none-any.whl";
-      };
-    }
-  ).public-wheel.src.evaluatorFetch;
 true

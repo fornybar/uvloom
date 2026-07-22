@@ -64,27 +64,27 @@ let
           authenticatedIndexFetchLib.mkOverlay {
             inherit lock uvIndexes;
             authenticatedOnly = checkedFetcher == "auto";
-            fetch = evaluatorFetch;
+            inherit evaluatorFetch;
           };
+
+      packagePkgs =
+        if authenticatedIndexFetchOverlay == null then pkgs else pkgs.extend authenticatedIndexFetchOverlay;
 
       pythonSetCore = pythonSetLib.build {
         where = "forPython";
         inherit
-          pkgs
           interpreter
           sourcePreference
           overlays
           environ
           stdenv
           ;
+        pkgs = packagePkgs;
         requiresPythonSource = workspace;
         forgeFetchOverlay = forgeFetchLib.mkOverlay {
           root = workspaceRoot;
           config = forgeFetch;
         };
-        fetchOverlays = lib.optional (
-          authenticatedIndexFetchOverlay != null
-        ) authenticatedIndexFetchOverlay;
         mkOverlay =
           { sourcePreference, environ }:
           workspace.mkPyprojectOverlay {
@@ -345,6 +345,7 @@ let
               fetcher
               lock
               uvIndexes
+              evaluatorFetch
               environ
               stdenv
               ;

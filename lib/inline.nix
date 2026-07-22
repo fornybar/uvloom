@@ -10,22 +10,19 @@ let
     inherit lib pyproject-nix pyproject-build-systems;
   };
 
-  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
-    inherit lib;
-    fail = where: message: throw "uvloom.${where}: ${message}";
-  };
-
   load =
     {
       path,
       lockPath ? path + ".lock",
       config ? { },
       fetcher ? "auto",
+      evaluatorFetch ? builtins.fetchurl,
     }:
     let
       scriptPath = path;
       script = path;
       configuredFetcher = fetcher;
+      configuredEvaluatorFetch = evaluatorFetch;
       hasInlineMetadata = lib.hasInfix "# /// script" (builtins.readFile scriptPath);
       missingInlineMetadataError = "inline.load: ${toString scriptPath} has no PEP 723 inline metadata. For uv project entrypoints, use project.load and app { command = ...; }.";
     in
@@ -59,6 +56,7 @@ let
             workspaceRoot ? builtins.dirOf script,
             stdenv ? pkgs.stdenv,
             fetcher ? configuredFetcher,
+            evaluatorFetch ? configuredEvaluatorFetch,
           }:
           let
             validFetchers = [
@@ -75,24 +73,29 @@ let
               if checkedFetcher == "nixpkgs" then
                 null
               else
+                let
+                  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
+                    inherit lib;
+                    fail = where: message: throw "uvloom.${where}: ${message}";
+                  };
+                in
                 authenticatedIndexFetchLib.mkOverlay {
-                  inherit lock;
+                  inherit lock evaluatorFetch;
                   uvIndexes = ((metadataScript.metadata.tool or { }).uv or { }).index or [ ];
                   authenticatedOnly = checkedFetcher == "auto";
                 };
+            packagePkgs =
+              if authenticatedIndexFetchOverlay == null then pkgs else pkgs.extend authenticatedIndexFetchOverlay;
             pythonSetCore = pythonSetLib.build {
               where = "inline.load.forPython";
               inherit
-                pkgs
                 interpreter
                 sourcePreference
                 overlays
                 environ
                 stdenv
                 ;
-              fetchOverlays = lib.optional (
-                authenticatedIndexFetchOverlay != null
-              ) authenticatedIndexFetchOverlay;
+              pkgs = packagePkgs;
               requiresPythonSource = {
                 requires-python = metadataScript.metadata.requires-python;
               };
@@ -189,13 +192,14 @@ let
       root,
       config ? { },
       fetcher ? "auto",
+      evaluatorFetch ? builtins.fetchurl,
     }:
     lib.mapAttrs'
       (
         fileName: _:
         lib.nameValuePair (lib.removeSuffix ".py" fileName) (load {
           path = root + "/${fileName}";
-          inherit config fetcher;
+          inherit config fetcher evaluatorFetch;
         })
       )
       (
