@@ -46,29 +46,16 @@ let
     let
       scopeDependencies = dependencies;
       candidates = packageLib.localNames workspace;
-      validFetchers = [
-        "auto"
-        "evaluator"
-        "nixpkgs"
-      ];
-      checkedFetcher =
-        if builtins.elem fetcher validFetchers then
+      packagePkgs = authenticatedIndexFetchLib.pkgsForFetcher {
+        where = "forPython";
+        inherit
           fetcher
-        else
-          errors.fail "forPython" "fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
-
-      authenticatedIndexFetchOverlay =
-        if lock == null || checkedFetcher == "nixpkgs" then
-          null
-        else
-          authenticatedIndexFetchLib.mkOverlay {
-            inherit lock uvIndexes;
-            authenticatedOnly = checkedFetcher == "auto";
-            inherit evaluatorFetch;
-          };
-
-      packagePkgs =
-        if authenticatedIndexFetchOverlay == null then pkgs else pkgs.extend authenticatedIndexFetchOverlay;
+          pkgs
+          lock
+          uvIndexes
+          evaluatorFetch
+          ;
+      };
 
       pythonSetCore = pythonSetLib.build {
         where = "forPython";

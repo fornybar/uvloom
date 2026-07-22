@@ -10,6 +10,11 @@ let
     inherit lib pyproject-nix pyproject-build-systems;
   };
 
+  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
+    inherit lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
+  };
+
   load =
     {
       path,
@@ -59,33 +64,16 @@ let
             evaluatorFetch ? configuredEvaluatorFetch,
           }:
           let
-            validFetchers = [
-              "auto"
-              "evaluator"
-              "nixpkgs"
-            ];
-            checkedFetcher =
-              if builtins.elem fetcher validFetchers then
+            packagePkgs = authenticatedIndexFetchLib.pkgsForFetcher {
+              where = "inline.load.forPython";
+              inherit
                 fetcher
-              else
-                throw "uvloom.inline.load.forPython: fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
-            authenticatedIndexFetchOverlay =
-              if checkedFetcher == "nixpkgs" then
-                null
-              else
-                let
-                  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
-                    inherit lib;
-                    fail = where: message: throw "uvloom.${where}: ${message}";
-                  };
-                in
-                authenticatedIndexFetchLib.mkOverlay {
-                  inherit lock evaluatorFetch;
-                  uvIndexes = ((metadataScript.metadata.tool or { }).uv or { }).index or [ ];
-                  authenticatedOnly = checkedFetcher == "auto";
-                };
-            packagePkgs =
-              if authenticatedIndexFetchOverlay == null then pkgs else pkgs.extend authenticatedIndexFetchOverlay;
+                pkgs
+                lock
+                evaluatorFetch
+                ;
+              uvIndexes = ((metadataScript.metadata.tool or { }).uv or { }).index or [ ];
+            };
             pythonSetCore = pythonSetLib.build {
               where = "inline.load.forPython";
               inherit

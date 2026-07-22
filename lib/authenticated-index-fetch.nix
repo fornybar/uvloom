@@ -134,6 +134,22 @@ let
       inherit lock registries authenticatedOnly;
     });
 
+  validFetchers = [
+    "auto"
+    "evaluator"
+    "nixpkgs"
+  ];
+
+  validateFetcher =
+    {
+      where,
+      fetcher,
+    }:
+    if builtins.elem fetcher validFetchers then
+      fetcher
+    else
+      fail where "fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
+
   mkOverlay =
     {
       lock,
@@ -163,7 +179,30 @@ let
             name = args.name or artifact.filename;
           };
     };
+
+  pkgsForFetcher =
+    {
+      where,
+      fetcher,
+      pkgs,
+      lock ? null,
+      uvIndexes ? [ ],
+      evaluatorFetch ? builtins.fetchurl,
+    }:
+    let
+      checkedFetcher = validateFetcher { inherit where fetcher; };
+    in
+    if lock == null || checkedFetcher == "nixpkgs" then
+      pkgs
+    else
+      pkgs.extend (mkOverlay {
+        inherit lock uvIndexes evaluatorFetch;
+        authenticatedOnly = checkedFetcher == "auto";
+      });
 in
 {
-  inherit mkOverlay;
+  inherit
+    mkOverlay
+    pkgsForFetcher
+    ;
 }
