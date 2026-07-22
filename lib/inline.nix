@@ -10,15 +10,22 @@ let
     inherit lib pyproject-nix pyproject-build-systems;
   };
 
+  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
+    inherit lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
+  };
+
   load =
     {
       path,
       lockPath ? path + ".lock",
       config ? { },
+      fetcher ? "auto",
     }:
     let
       scriptPath = path;
       script = path;
+      configuredFetcher = fetcher;
       hasInlineMetadata = lib.hasInfix "# /// script" (builtins.readFile scriptPath);
       missingInlineMetadataError = "inline.load: ${toString scriptPath} has no PEP 723 inline metadata. For uv project entrypoints, use project.load and app { command = ...; }.";
     in
@@ -33,6 +40,7 @@ let
         loadedScript = uv2nix.lib.scripts.loadScript {
           inherit script lockPath config;
         };
+        lock = uv2nix.lib.lock1.parseLock (lib.importTOML lockPath);
       in
       {
         inherit (loadedScript) name config;
@@ -50,8 +58,28 @@ let
             environ ? { },
             workspaceRoot ? builtins.dirOf script,
             stdenv ? pkgs.stdenv,
+            fetcher ? configuredFetcher,
           }:
           let
+            validFetchers = [
+              "auto"
+              "evaluator"
+              "nixpkgs"
+            ];
+            checkedFetcher =
+              if builtins.elem fetcher validFetchers then
+                fetcher
+              else
+                throw "uvloom.inline.load.forPython: fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
+            authenticatedIndexFetchOverlay =
+              if checkedFetcher == "nixpkgs" then
+                null
+              else
+                authenticatedIndexFetchLib.mkOverlay {
+                  inherit lock;
+                  uvIndexes = ((metadataScript.metadata.tool or { }).uv or { }).index or [ ];
+                  authenticatedOnly = checkedFetcher == "auto";
+                };
             pythonSetCore = pythonSetLib.build {
               where = "inline.load.forPython";
               inherit
@@ -62,6 +90,9 @@ let
                 environ
                 stdenv
                 ;
+              fetchOverlays = lib.optional (
+                authenticatedIndexFetchOverlay != null
+              ) authenticatedIndexFetchOverlay;
               requiresPythonSource = {
                 requires-python = metadataScript.metadata.requires-python;
               };
@@ -157,13 +188,14 @@ let
     {
       root,
       config ? { },
+      fetcher ? "auto",
     }:
     lib.mapAttrs'
       (
         fileName: _:
         lib.nameValuePair (lib.removeSuffix ".py" fileName) (load {
           path = root + "/${fileName}";
-          inherit config;
+          inherit config fetcher;
         })
       )
       (

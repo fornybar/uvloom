@@ -324,6 +324,30 @@ scope = project.forPython {
 };
 ```
 
+## Fetch authenticated registry artifacts during evaluation
+
+Mark private uv indexes with `authenticate = "always"`:
+
+```toml
+[[tool.uv.index]]
+name = "private"
+url = "https://packages.example/simple"
+authenticate = "always"
+```
+
+Default `fetcher = "auto"` keeps public artifacts on uv2nix/nixpkgs fetches and replaces fetch only for locked artifacts from authenticated indexes with evaluator-side `builtins.fetchurl`, forwarding locked URL, SHA-256, and filename. uv2nix still selects wheel or sdist using normal platform and `sourcePreference` rules.
+
+```nix
+project = uvloom.lib.project.load { root = ./.; };
+scope = project.forPython { inherit pkgs; };
+```
+
+Use `fetcher = "evaluator"` on `project.load` or `forPython` to fetch all locked registry artifacts during evaluation. Use `fetcher = "nixpkgs"` to disable this behavior. `fetcher` also applies to inline scripts through `inline.load` or `forPython`.
+
+Evaluator fetching does not handle credentials and never puts credentials in Nix expressions, URLs, lockfiles, or derivations. Configure native Nix authentication externally (for example, Nix `netrc-file`) on invoking machine. Remote builders receive realized store inputs and do not need registry credentials. Do not evaluate untrusted flakes while credentials are available.
+
+Artifact URLs may contain query or fragment components. uv lock records these as part of artifact identity, and evaluator fetching preserves the URL while requiring HTTPS, rejecting userinfo, and checking its locked hash. Artifact paths must name a file and must not end in `/`; this avoids treating an index directory as a fetchable artifact.
+
 ## Export packages to nixpkgs-style Python sets
 
 Use this when consumers should use normal nixpkgs patterns such as `python3.withPackages` or `python3Packages.my-project`.

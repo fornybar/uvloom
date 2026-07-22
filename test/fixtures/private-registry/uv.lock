@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "private-registry-app"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "private-wheel" },
+]
+
+[[package]]
+name = "private-wheel"
+version = "1.0.0"
+source = { registry = "https://private.example/simple" }
+wheels = [
+    { url = "https://private.example/packages/private-wheel-1.0.0-py3-none-any.whl", hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+]

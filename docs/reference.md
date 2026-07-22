@@ -26,6 +26,7 @@ Arguments:
 | --- | --- | --- |
 | `root` | Yes | Project root containing `pyproject.toml` and `uv.lock`. |
 | `forgeFetch` | No | Project-wide forge fetch config. Defaults to `"auto"`. |
+| `fetcher` | No | Registry artifact fetch mode. Defaults to `"auto"`; authenticated indexes marked `authenticate = "always"` use evaluator-side fetching. |
 
 Returns:
 
@@ -60,6 +61,7 @@ Arguments:
 | `environ` | `{ }` | Environment passed to upstream workspace overlay. |
 | `stdenv` | `pkgs.stdenv` | stdenv used by pyproject.nix builds and checks. |
 | `forgeFetch` | project default | Override project-wide forge fetch config for this scope. |
+| `fetcher` | project default | `"auto"` fetches artifacts from authenticated indexes during evaluation; `"evaluator"` fetches all locked registry artifacts during evaluation; `"nixpkgs"` disables evaluator fetching. |
 
 Returns scope helpers:
 

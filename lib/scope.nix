@@ -16,6 +16,11 @@ let
     fail = errors.fail;
   };
 
+  authenticatedIndexFetchLib = import ./authenticated-index-fetch.nix {
+    inherit lib;
+    fail = errors.fail;
+  };
+
   packageLib = import ./packages.nix {
     inherit lib;
     fail = errors.fail;
@@ -30,13 +35,37 @@ let
       sourcePreference ? "wheel",
       dependencies ? workspace.deps.default,
       forgeFetch ? null,
+      fetcher ? "auto",
       overlays ? [ ],
       environ ? { },
       stdenv ? pkgs.stdenv,
+      lock ? null,
+      uvIndexes ? [ ],
+      evaluatorFetch ? builtins.fetchurl,
     }:
     let
       scopeDependencies = dependencies;
       candidates = packageLib.localNames workspace;
+      validFetchers = [
+        "auto"
+        "evaluator"
+        "nixpkgs"
+      ];
+      checkedFetcher =
+        if builtins.elem fetcher validFetchers then
+          fetcher
+        else
+          errors.fail "forPython" "fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
+
+      authenticatedIndexFetchOverlay =
+        if lock == null || checkedFetcher == "nixpkgs" then
+          null
+        else
+          authenticatedIndexFetchLib.mkOverlay {
+            inherit lock uvIndexes;
+            authenticatedOnly = checkedFetcher == "auto";
+            fetch = evaluatorFetch;
+          };
 
       pythonSetCore = pythonSetLib.build {
         where = "forPython";
@@ -53,6 +82,9 @@ let
           root = workspaceRoot;
           config = forgeFetch;
         };
+        fetchOverlays = lib.optional (
+          authenticatedIndexFetchOverlay != null
+        ) authenticatedIndexFetchOverlay;
         mkOverlay =
           { sourcePreference, environ }:
           workspace.mkPyprojectOverlay {
@@ -310,6 +342,9 @@ let
               pkgs
               sourcePreference
               forgeFetch
+              fetcher
+              lock
+              uvIndexes
               environ
               stdenv
               ;

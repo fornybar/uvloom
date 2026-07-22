@@ -27,9 +27,14 @@ let
     {
       root,
       forgeFetch ? "auto",
+      fetcher ? "auto",
     }:
     let
       projectForgeFetch = forgeFetch;
+      projectFetcher = fetcher;
+      pyproject = lib.importTOML (root + "/pyproject.toml");
+      uvIndexes = ((pyproject.tool or { }).uv or { }).index or [ ];
+      lock = uv2nix.lib.lock1.parseLock (lib.importTOML (root + "/uv.lock"));
       workspace = uv2nix.lib.workspace.loadWorkspace {
         workspaceRoot = root;
       };
@@ -45,9 +50,11 @@ let
             sourcePreference ? "wheel",
             dependencies ? workspace.deps.default,
             forgeFetch ? projectForgeFetch,
+            fetcher ? projectFetcher,
             overlays ? [ ],
             environ ? { },
             stdenv ? null,
+            evaluatorFetch ? builtins.fetchurl,
           }:
           python-final: python-prev:
           let
@@ -58,8 +65,10 @@ let
                 sourcePreference
                 dependencies
                 forgeFetch
+                fetcher
                 overlays
                 environ
+                evaluatorFetch
                 ;
               interpreter = python-prev.python;
               stdenv = if stdenv == null then pkgs.stdenv else stdenv;
@@ -86,9 +95,11 @@ let
           sourcePreference ? "wheel",
           dependencies ? workspace.deps.default,
           forgeFetch ? projectForgeFetch,
+          fetcher ? projectFetcher,
           overlays ? [ ],
           environ ? { },
           stdenv ? pkgs.stdenv,
+          evaluatorFetch ? builtins.fetchurl,
         }:
         makeScope {
           inherit
@@ -98,9 +109,13 @@ let
             sourcePreference
             dependencies
             forgeFetch
+            fetcher
             overlays
             environ
             stdenv
+            lock
+            uvIndexes
+            evaluatorFetch
             ;
           workspaceRoot = root;
         };
