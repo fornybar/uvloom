@@ -49,7 +49,34 @@ let
         ) uvIndexes
       );
 
-  mkArtifactURLs =
+  normalizeHash =
+    where: hash:
+    let
+      converted = builtins.tryEval (
+        if !builtins.isString hash then
+          throw "hash is not a string"
+        else
+          builtins.convertHash {
+            inherit hash;
+            toHashFormat = "sri";
+          }
+      );
+    in
+    if !converted.success || !lib.hasPrefix "sha256-" converted.value then
+      fail where "selected registry artifact hash must be a valid SHA-256 hash"
+    else
+      converted.value;
+
+  artifactFilename =
+    where: url:
+    let
+      withoutFragment = builtins.head (lib.splitString "#" url);
+      withoutQuery = builtins.head (lib.splitString "?" withoutFragment);
+      filename = lib.last (lib.splitString "/" withoutQuery);
+    in
+    if filename == "" then fail where "selected registry artifact URL must name a file" else filename;
+
+  selectedArtifacts =
     {
       lock,
       registries,
@@ -58,26 +85,54 @@ let
     let
       selectedPackage =
         package:
-        package.source ? registry
-        && builtins.isString package.source.registry
+        let
+          source = package.source or { };
+        in
+        source ? registry
+        && builtins.isString source.registry
         && (
           !authenticatedOnly
-          || builtins.elem (normalizeRegistry "uv lock registry" package.source.registry) registries
+          || builtins.elem (normalizeRegistry "uv lock registry" source.registry) registries
         );
-      packages = builtins.filter selectedPackage lock.package;
-      artifacts = lib.concatMap (
-        package: (package.wheels or [ ]) ++ lib.optional ((package.sdist or { }) != { }) package.sdist
-      ) packages;
-      artifactURL =
-        artifact:
-        if !(artifact ? url) then
-          null
+    in
+    lib.pipe lock.package [
+      (builtins.filter selectedPackage)
+      (lib.concatMap (package: (package.wheels or [ ]) ++ lib.optional (package ? sdist) package.sdist))
+    ];
+
+  mkArtifactMetadata =
+    {
+      lock,
+      registries,
+      authenticatedOnly,
+    }:
+    let
+      addArtifact =
+        metadata: artifact:
+        if !(builtins.isAttrs artifact) || !(artifact ? url) then
+          metadata
         else if !(artifact ? hash) then
           fail "authenticatedIndexFetch" "selected registry artifact must provide a hash"
         else
-          validateHTTPS "authenticatedIndexFetch" artifact.url;
+          let
+            url = validateHTTPS "authenticatedIndexFetch" artifact.url;
+            hash = normalizeHash "authenticatedIndexFetch" artifact.hash;
+            filename = artifactFilename "authenticatedIndexFetch" url;
+            existing = metadata.${url} or null;
+          in
+          if existing == null then
+            metadata
+            // {
+              ${url} = { inherit url hash filename; };
+            }
+          else if existing.hash != hash then
+            fail "authenticatedIndexFetch" "selected registry URL `${url}` has conflicting locked hashes"
+          else
+            metadata;
     in
-    lib.unique (builtins.filter (url: url != null) (map artifactURL artifacts));
+    lib.foldl' addArtifact { } (selectedArtifacts {
+      inherit lock registries authenticatedOnly;
+    });
 
   mkOverlay =
     {
@@ -87,30 +142,26 @@ let
       evaluatorFetch ? builtins.fetchurl,
     }:
     let
-      artifactURLs = mkArtifactURLs {
+      artifactMetadata = mkArtifactMetadata {
         inherit lock authenticatedOnly;
         registries = authenticatedRegistries uvIndexes;
       };
     in
-    final: prev: {
+    _final: prev: {
       fetchurl =
         args:
-        if builtins.isAttrs args && args ? url && builtins.elem args.url artifactURLs then
-          evaluatorFetch (
-            {
-              url = args.url;
-              sha256 =
-                if args ? hash then
-                  args.hash
-                else
-                  fail "authenticatedIndexFetch" "selected registry fetch must provide a hash";
-            }
-            // lib.optionalAttrs (args ? name) {
-              name = args.name;
-            }
-          )
+        let
+          artifact =
+            if builtins.isAttrs args && args ? url then artifactMetadata.${args.url} or null else null;
+        in
+        if artifact == null then
+          prev.fetchurl args
         else
-          prev.fetchurl args;
+          evaluatorFetch {
+            url = artifact.url;
+            sha256 = artifact.hash;
+            name = args.name or artifact.filename;
+          };
     };
 in
 {

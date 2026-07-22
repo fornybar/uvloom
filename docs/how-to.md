@@ -335,7 +335,7 @@ url = "https://packages.example/simple"
 authenticate = "always"
 ```
 
-Default `fetcher = "auto"` keeps public artifacts on uv2nix/nixpkgs fetches and replaces fetch only for locked artifacts from authenticated indexes with evaluator-side `builtins.fetchurl`, forwarding locked URL, SHA-256, and filename. uv2nix still selects wheel or sdist using normal platform and `sourcePreference` rules.
+Default `fetcher = "auto"` keeps public artifacts on uv2nix/nixpkgs fetches and replaces fetch only for locked artifacts from authenticated indexes with evaluator-side `builtins.fetchurl`, using locked URL and SHA-256. If uv2nix supplies a filename, it is preserved; otherwise, filename is derived from locked artifact URL path. uv2nix still selects wheel or sdist using normal platform and `sourcePreference` rules.
 
 ```nix
 project = uvloom.lib.project.load { root = ./.; };
