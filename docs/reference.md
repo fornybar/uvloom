@@ -63,6 +63,11 @@ Arguments:
 | `forgeFetch` | project default | Override project-wide forge fetch config for this scope. |
 | `fetcher` | project default | `"auto"` fetches artifacts from authenticated indexes during evaluation; `"evaluator"` fetches all locked registry artifacts during evaluation; `"nixpkgs"` disables evaluator fetching. |
 
+For authenticated private-index artifacts, uvloom intercepts matching locked
+artifact fetches and performs them with `builtins.fetchurl` during evaluation.
+Credentials are configured externally through native Nix authentication. See
+[Fetch authenticated registry artifacts during evaluation](how-to.md#fetch-authenticated-registry-artifacts-during-evaluation).
+
 Returns scope helpers:
 
 | Attribute | Meaning |
@@ -387,7 +392,7 @@ nix build .#docs
 
 ## Forge fetch
 
-`forgeFetch` fetches locked Git dependencies from GitHub/GitLab through Nix's forge-aware `builtins.fetchTree` support. It defaults to `"auto"` for projects.
+For [git sources](https://docs.astral.sh/uv/concepts/projects/dependencies/#git) behind private GitHub organizations, `builtins.fetchGit`, which is used by `uv2nix` to fetch the resources, needs authentication details via a Git credentials helper (e.g. by running `gh auth setup-git`) or a `.netrc` file. `forgeFetch` instead fetches locked Git dependencies from GitHub/GitLab through Nix's forge-aware `builtins.fetchTree` support, using the `nix.conf` option `access-tokens` instead, which is often set up for `flake`-users anyway and avoids the extra step of setting up the credentials helper or .netrc file. 
 
 Accepted values:
 
