@@ -324,7 +324,20 @@ scope = project.forPython {
 };
 ```
 
-## Fetch authenticated registry artifacts during evaluation
+## Private dependencies
+
+uvloom supports private Git dependencies and private registry artifacts. Both
+fetch during Nix evaluation, so package builds and remote builders do not need
+registry or forge credentials. Authentication remains external to project
+files, lock files, and derivations; configure it for the machine running the
+evaluator.
+
+The two fetch paths use different Nix authentication settings:
+
+- [Git sources](https://docs.astral.sh/uv/concepts/projects/dependencies/#git) use `access-tokens` in `nix.conf` (or via `NIX_CONFIG`).
+- Private artifacts (e.g. authentication-gated [package indexes](https://peps.python.org/pep-0503/)) use a `netrc-file` read by evaluator-side `builtins.fetchurl`.
+
+### Fetch authenticated registry artifacts during evaluation
 
 Mark private uv indexes with `authenticate = "always"`:
 
@@ -342,11 +355,78 @@ project = uvloom.lib.project.load { root = ./.; };
 scope = project.forPython { inherit pkgs; };
 ```
 
+Configure the registry credentials in a Nix netrc file on the evaluator:
+
+```text
+# ~/.config/nix/netrc
+machine packages.example
+  login <provider-username>
+  password <provider-token>
+```
+
+Point Nix at that file in `nix.conf` (or set in `NIX_CONFIG`):
+
+```ini
+# ~/.config/nix/nix.conf
+netrc-file = /home/<user>/.config/nix/netrc
+```
+
+Replace `packages.example` and the login format with values required by your
+registry. Some token-based registries use `__token__` as the login. Protect
+the file, for example with `chmod 600 ~/.config/nix/netrc`, and do not commit
+it.
+
 Use `fetcher = "evaluator"` on `project.load` or `forPython` to fetch all locked registry artifacts during evaluation. Use `fetcher = "nixpkgs"` to disable this behavior. `fetcher` also applies to inline scripts through `inline.load` or `forPython`.
 
 Evaluator fetching does not handle credentials and never puts credentials in Nix expressions, URLs, lockfiles, or derivations. Configure native Nix authentication externally (for example, Nix `netrc-file`) on invoking machine. Remote builders receive realized store inputs and do not need registry credentials. Do not evaluate untrusted flakes while credentials are available.
 
 Artifact URLs may contain query or fragment components. uv lock records these as part of artifact identity, and evaluator fetching preserves the URL while requiring HTTPS, rejecting userinfo, and checking its locked hash. Artifact paths must name a file and must not end in `/`; this avoids treating an index directory as a fetchable artifact.
+
+### Private Git dependencies
+
+By default, uvloom fetches locked Git dependencies from GitHub and GitLab
+through Nix's forge-aware `builtins.fetchTree` support. This reuses Nix
+`access-tokens`, avoiding a separate Git credentials helper or `.netrc` setup
+for Git sources. It bypasses a limitation of `uv2nix`, which uses `fetchGit`
+for source fetching.
+
+Configure forge credentials in `nix.conf` (or set in `NIX_CONFIG`):
+
+```ini
+# ~/.config/nix/nix.conf
+access-tokens = github.com=<github-token> gitlab.com=<gitlab-token>
+```
+
+Include only hosts you use. Keep tokens outside the repository and protect the
+configuration file. Flake users may already have `access-tokens` configured
+for private flake inputs.
+
+`forgeFetch = "auto"` applies to all locked Git packages in `uv.lock`. To limit the behavior, name packages explicitly:
+
+```nix
+project = uvloom.lib.project.load {
+  root = ./.;
+  forgeFetch = [ "my-private-package" ];
+};
+```
+
+Package names use normal Python package-name normalization, so `My_Pkg` and `my-pkg` match the same lock entry.
+
+Disable forge fetch with `null`:
+
+```nix
+project = uvloom.lib.project.load {
+  root = ./.;
+  forgeFetch = null;
+};
+```
+
+Can be applied per-scope as well. Supported sources:
+
+- GitHub and GitLab.com repositories.
+- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
+
+Unsupported sources fail during evaluation with a `forgeFetch` error. `forgeFetch` supports locked uv Git URLs with `rev`/`branch`/`tag`, `subdirectory`, and commit fragments, including GitLab nested groups. Git submodules, Git LFS, and legacy `egg` fragments are not supported.
 
 ## Export packages to nixpkgs-style Python sets
 
@@ -541,34 +621,3 @@ Supported escape hatches:
 - `scope.nixpkgs.package`: one-package nixpkgs-style export.
 
 If your flake mostly needs custom `uv2nix` composition, use `uv2nix` and `pyproject-nix` directly.
-
-## Private repositories
-
-By default, uvloom fetches locked Git dependencies through Nix's forge-aware `builtins.fetchTree` support when they come from GitHub or GitLab. This lets Nix use configured access tokens, bypassing a limitation of `uv2nix` which uses `fetchGit` (due to `fetchTree` being feature-gated behind experimental flakes) for source fetching which requires setting up a `.netrc` file or configuring a git credentials helper.
-
-`forgeFetch = "auto"` applies to all locked Git packages in `uv.lock`. To limit the behavior, name packages explicitly:
-
-```nix
-project = uvloom.lib.project.load {
-  root = ./.;
-  forgeFetch = [ "my-private-package" ];
-};
-```
-
-Package names use normal Python package-name normalization, so `My_Pkg` and `my-pkg` match the same lock entry.
-
-Disable forge fetch with `null`:
-
-```nix
-project = uvloom.lib.project.load {
-  root = ./.;
-  forgeFetch = null;
-};
-```
-
-Can be applied per-scope as well. Supported sources:
-
-- GitHub and GitLab.com repositories.
-- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
-
-Unsupported sources fail during evaluation with a `forgeFetch` error. `forgeFetch` supports locked uv Git URLs with `rev`/`branch`/`tag`, `subdirectory`, and commit fragments, including GitLab nested groups. Git submodules, Git LFS, and legacy `egg` fragments are not supported.

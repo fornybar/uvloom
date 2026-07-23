@@ -42,6 +42,51 @@ At a high level:
 
 Helpers all use the same composed package set unless you ask for a different dependency selection.
 
+## Private dependencies
+
+Private Git dependencies and registry artifacts share an authentication boundary:
+credentials are needed during download, but package builds may run in a sandbox
+or on a remote builder that cannot access them. uvloom fetches both during Nix
+evaluation while leaving dependency selection and build configuration to uv2nix.
+
+The fetch paths use different Nix authentication settings:
+
+- Forge Git sources use `access-tokens` with `builtins.fetchTree`.
+- Registry artifacts use `netrc-file` with evaluator-side `builtins.fetchurl`.
+
+### Private Git dependencies
+
+uv2nix normally fetches Git sources with `fetchGit`, which requires Git
+credential-helper or `.netrc` setup for private repositories. With
+`forgeFetch`, uvloom reads locked Git sources from `uv.lock` and routes
+supported GitHub and GitLab sources through forge-aware `builtins.fetchTree`.
+Nix can then reuse `access-tokens` already configured for private flake inputs.
+The locked commit remains the fetch revision, even when the source also names a
+branch or tag.
+
+### Private registry artifacts
+
+For registry artifacts, uvloom moves selected downloads to evaluation time
+while leaving package selection and build configuration to uv2nix.
+
+When `fetcher = "auto"`, uvloom reads authenticated indexes from `pyproject.toml` and matches them against registry sources in `uv.lock`. It overlays `pkgs.fetchurl` before uv2nix creates its package set:
+
+```text
+pyproject.toml + uv.lock
+          ↓
+select locked artifacts from authenticated indexes
+          ↓
+intercept matching pkgs.fetchurl calls
+          ↓
+builtins.fetchurl during evaluation
+          ↓
+store path passed to the package build
+```
+
+Matching locked wheels and source distributions use evaluator-side `builtins.fetchurl` with the URL and SHA-256 recorded in `uv.lock`. Public and unmatched artifacts continue through the normal nixpkgs fetcher. uv2nix still chooses wheel or source distribution according to platform and `sourcePreference`.
+
+Credentials are configured outside Nix expressions, lock files, and derivations through native Nix authentication. The evaluator needs access; remote builders receive realized store inputs instead of registry credentials. See [Fetch authenticated registry artifacts during evaluation](how-to.md#fetch-authenticated-registry-artifacts-during-evaluation) for configuration and fetcher modes.
+
 ## Helpers versus package set
 
 Use helpers for normal flake outputs:
