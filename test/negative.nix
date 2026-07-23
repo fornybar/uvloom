@@ -30,6 +30,27 @@ let
     fail = where: message: throw "uvloom.${where}: ${message}";
   };
 
+  authenticatedIndexFetchLib = import ../lib/authenticated-index-fetch.nix {
+    inherit (pkgs) lib;
+    fail = where: message: throw "uvloom.${where}: ${message}";
+  };
+
+  authenticatedIndex = {
+    url = "https://private.example/simple";
+    authenticate = "always";
+  };
+
+  failsAuthenticatedFetch =
+    lock: url:
+    fails (
+      (authenticatedIndexFetchLib.mkOverlay {
+        inherit lock;
+        uvIndexes = [ authenticatedIndex ];
+        evaluatorFetch = args: args;
+      } { } { fetchurl = args: args; }).fetchurl
+        { inherit url; }
+    );
+
   multiScope = multiProject.forPython {
     inherit pkgs;
     interpreter = pkgs.python312;
@@ -46,6 +67,67 @@ assert fails (
     sourcePreference = "bad";
   }).pythonSet
 );
+assert failsAuthenticatedFetch {
+  package = [
+    {
+      name = "missing-hash";
+      source.registry = "https://private.example/simple";
+      wheels = [ { url = "https://private.example/packages/missing.whl"; } ];
+    }
+  ];
+} "https://private.example/packages/missing.whl";
+assert failsAuthenticatedFetch {
+  package = [
+    {
+      name = "trailing-slash";
+      source.registry = "https://private.example/simple";
+      wheels = [
+        {
+          url = "https://private.example/packages/";
+          hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        }
+      ];
+    }
+  ];
+} "https://private.example/packages/";
+assert failsAuthenticatedFetch {
+  package = [
+    {
+      name = "non-sha256";
+      source.registry = "https://private.example/simple";
+      wheels = [
+        {
+          url = "https://private.example/packages/non-sha256.whl";
+          hash = "sha512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        }
+      ];
+    }
+  ];
+} "https://private.example/packages/non-sha256.whl";
+assert failsAuthenticatedFetch {
+  package = [
+    {
+      name = "conflict-a";
+      source.registry = "https://private.example/simple";
+      wheels = [
+        {
+          url = "https://private.example/packages/conflict.whl";
+          hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        }
+      ];
+    }
+    {
+      name = "conflict-b";
+      source.registry = "https://private.example/simple";
+      wheels = [
+        {
+          url = "https://private.example/packages/conflict.whl";
+          hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        }
+      ];
+    }
+  ];
+} "https://private.example/packages/conflict.whl";
 assert fails (
   (project.forPython {
     inherit pkgs;
@@ -369,6 +451,13 @@ assert fails (
     inherit pkgs;
     interpreter = pkgs.python312;
     overlays = { };
+  }).pythonSet
+);
+assert fails (
+  (script.forPython {
+    inherit pkgs;
+    interpreter = pkgs.python312;
+    fetcher = "bad";
   }).pythonSet
 );
 assert fails (uvloom.lib.inline.load { path = ./fixtures/scripts/plain.py; });

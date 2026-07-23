@@ -1,16 +1,17 @@
 {
   lib,
   fail,
-  fetch ? builtins.fetchurl,
 }:
 
 let
-  defaultFetch = fetch;
-
   validateHTTPS =
     where: url:
     let
-      authority = builtins.head (lib.splitString "/" (lib.removePrefix "https://" url));
+      authority =
+        if builtins.isString url then
+          builtins.head (lib.splitString "/" (lib.removePrefix "https://" url))
+        else
+          "";
     in
     if
       !builtins.isString url
@@ -48,47 +49,160 @@ let
         ) uvIndexes
       );
 
+  normalizeHash =
+    where: hash:
+    let
+      converted = builtins.tryEval (
+        if !builtins.isString hash then
+          throw "hash is not a string"
+        else
+          builtins.convertHash {
+            inherit hash;
+            toHashFormat = "sri";
+          }
+      );
+    in
+    if !converted.success || !lib.hasPrefix "sha256-" converted.value then
+      fail where "selected registry artifact hash must be a valid SHA-256 hash"
+    else
+      converted.value;
+
+  artifactFilename =
+    where: url:
+    let
+      withoutFragment = builtins.head (lib.splitString "#" url);
+      withoutQuery = builtins.head (lib.splitString "?" withoutFragment);
+      filename = lib.last (lib.splitString "/" withoutQuery);
+    in
+    if filename == "" then fail where "selected registry artifact URL must name a file" else filename;
+
+  selectedArtifacts =
+    {
+      lock,
+      registries,
+      authenticatedOnly,
+    }:
+    let
+      selectedPackage =
+        package:
+        let
+          source = package.source or { };
+        in
+        source ? registry
+        && builtins.isString source.registry
+        && (
+          !authenticatedOnly
+          || builtins.elem (normalizeRegistry "uv lock registry" source.registry) registries
+        );
+    in
+    lib.pipe lock.package [
+      (builtins.filter selectedPackage)
+      (lib.concatMap (package: (package.wheels or [ ]) ++ lib.optional (package ? sdist) package.sdist))
+    ];
+
+  mkArtifactMetadata =
+    {
+      lock,
+      registries,
+      authenticatedOnly,
+    }:
+    let
+      addArtifact =
+        metadata: artifact:
+        if !(builtins.isAttrs artifact) || !(artifact ? url) then
+          metadata
+        else if !(artifact ? hash) then
+          fail "authenticatedIndexFetch" "selected registry artifact must provide a hash"
+        else
+          let
+            url = validateHTTPS "authenticatedIndexFetch" artifact.url;
+            hash = normalizeHash "authenticatedIndexFetch" artifact.hash;
+            filename = artifactFilename "authenticatedIndexFetch" url;
+            existing = metadata.${url} or null;
+          in
+          if existing == null then
+            metadata
+            // {
+              ${url} = { inherit url hash filename; };
+            }
+          else if existing.hash != hash then
+            fail "authenticatedIndexFetch" "selected registry URL `${url}` has conflicting locked hashes"
+          else
+            metadata;
+    in
+    lib.foldl' addArtifact { } (selectedArtifacts {
+      inherit lock registries authenticatedOnly;
+    });
+
+  validFetchers = [
+    "auto"
+    "evaluator"
+    "nixpkgs"
+  ];
+
+  validateFetcher =
+    {
+      where,
+      fetcher,
+    }:
+    if builtins.elem fetcher validFetchers then
+      fetcher
+    else
+      fail where "fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
+
   mkOverlay =
     {
       lock,
       uvIndexes ? [ ],
       authenticatedOnly ? true,
-      fetch ? defaultFetch,
+      evaluatorFetch ? builtins.fetchurl,
     }:
     let
-      registries = authenticatedRegistries uvIndexes;
-      selected =
-        package:
-        !authenticatedOnly
-        || (
-          package.source ? registry
-          && builtins.isString package.source.registry
-          && builtins.elem (normalizeRegistry "uv lock registry" package.source.registry) registries
-        );
-      packageNames = lib.unique (map (package: package.name) (builtins.filter selected lock.package));
+      artifactMetadata = mkArtifactMetadata {
+        inherit lock authenticatedOnly;
+        registries = authenticatedRegistries uvIndexes;
+      };
     in
-    final: prev:
-    lib.genAttrs (builtins.filter (name: prev ? ${name}) packageNames) (
-      name:
-      let
-        old = prev.${name};
-        source = if old ? src && builtins.isAttrs old.src then old.src else null;
-      in
-      if source == null then
-        old
-      else if !(source ? url && source ? hash && source ? name) then
-        fail "authenticatedIndexFetch.${name}" "selected registry source must provide URL, hash, and name"
-      else
-        old
-        // {
-          src = fetch {
-            url = validateHTTPS "authenticatedIndexFetch.${name}" source.url;
-            sha256 = source.hash;
-            inherit (source) name;
+    _final: prev: {
+      fetchurl =
+        args:
+        let
+          artifact =
+            if builtins.isAttrs args && args ? url then artifactMetadata.${args.url} or null else null;
+        in
+        if artifact == null then
+          prev.fetchurl args
+        else
+          evaluatorFetch {
+            url = artifact.url;
+            sha256 = artifact.hash;
+            name = args.name or artifact.filename;
           };
-        }
-    );
+    };
+
+  pkgsForFetcher =
+    {
+      where,
+      fetcher,
+      pkgs,
+      lock ? null,
+      uvIndexes ? [ ],
+      evaluatorFetch ? builtins.fetchurl,
+    }:
+    let
+      checkedFetcher = validateFetcher { inherit where fetcher; };
+    in
+    if lock == null || checkedFetcher == "nixpkgs" then
+      pkgs
+    else
+      pkgs.extend (mkOverlay {
+        inherit lock uvIndexes evaluatorFetch;
+        authenticatedOnly = checkedFetcher == "auto";
+      });
 in
 {
-  inherit mkOverlay;
+  inherit
+    mkOverlay
+    pkgsForFetcher
+    ;
 }

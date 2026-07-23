@@ -46,45 +46,32 @@ let
     let
       scopeDependencies = dependencies;
       candidates = packageLib.localNames workspace;
-      validFetchers = [
-        "auto"
-        "evaluator"
-        "nixpkgs"
-      ];
-      checkedFetcher =
-        if builtins.elem fetcher validFetchers then
+      packagePkgs = authenticatedIndexFetchLib.pkgsForFetcher {
+        where = "forPython";
+        inherit
           fetcher
-        else
-          errors.fail "forPython" "fetcher must be one of: ${lib.concatStringsSep ", " validFetchers}";
-
-      authenticatedIndexFetchOverlay =
-        if lock == null || checkedFetcher == "nixpkgs" then
-          null
-        else
-          authenticatedIndexFetchLib.mkOverlay {
-            inherit lock uvIndexes;
-            authenticatedOnly = checkedFetcher == "auto";
-            fetch = evaluatorFetch;
-          };
+          pkgs
+          lock
+          uvIndexes
+          evaluatorFetch
+          ;
+      };
 
       pythonSetCore = pythonSetLib.build {
         where = "forPython";
         inherit
-          pkgs
           interpreter
           sourcePreference
           overlays
           environ
           stdenv
           ;
+        pkgs = packagePkgs;
         requiresPythonSource = workspace;
         forgeFetchOverlay = forgeFetchLib.mkOverlay {
           root = workspaceRoot;
           config = forgeFetch;
         };
-        fetchOverlays = lib.optional (
-          authenticatedIndexFetchOverlay != null
-        ) authenticatedIndexFetchOverlay;
         mkOverlay =
           { sourcePreference, environ }:
           workspace.mkPyprojectOverlay {
@@ -345,6 +332,7 @@ let
               fetcher
               lock
               uvIndexes
+              evaluatorFetch
               environ
               stdenv
               ;
