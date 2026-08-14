@@ -7,3 +7,4 @@ result-*
 
 __pycache__
 __marimo__
+node_modules/

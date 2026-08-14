@@ -10,6 +10,7 @@
       pkgs.git-cliff
       pkgs.just
       pkgs.nixdoc
+      pkgs.nodejs
       pkgs.pandoc
       pkgs.python3
     ];
