@@ -2,14 +2,6 @@
 
 Stable user-facing uvloom API. Generated API docs include fuller comments from `uvloom.lib`.
 
-## API stability
-
-```nix
-uvloom.lib.apiVersion
-```
-
-Current documented API version: `2`.
-
 ## Projects
 
 ### `uvloom.lib.project.load`

@@ -31,3 +31,7 @@ docs-preview port="8000": docs-build
 # Remove local docs symlink
 docs-clean:
   rm -f result-docs
+
+# Install the local commitlint hook
+hooks-install:
+  git config core.hooksPath .githooks

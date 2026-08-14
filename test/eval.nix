@@ -429,7 +429,6 @@ let
 
   lockedRev = "0123456789abcdef0123456789abcdef01234567";
 in
-assert uvloom.lib.apiVersion == 2;
 assert uvloom.lib ? project;
 assert uvloom.lib.project ? load;
 assert uvloom.lib ? inline;

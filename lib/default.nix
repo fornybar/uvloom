@@ -122,8 +122,6 @@ let
     };
 in
 {
-  apiVersion = 2;
-
   project = {
     load = loadProject;
   };
