@@ -64,9 +64,7 @@ let
     } "mkdir -p $out";
   evaluatorStorePath = builtins.toFile "private-wheel-1.0.0-py3-none-any.whl" "not a wheel";
   pathFetch = _args: evaluatorStorePath;
-  localEvaluatorSource = builtins.toFile "private-registry-pyproject.toml" (
-    builtins.readFile ./fixtures/private-registry/pyproject.toml
-  );
+  localEvaluatorSource = ./fixtures/private-registry/pyproject.toml;
   localEvaluatorFetch = builtins.fetchurl {
     url = "file://${builtins.unsafeDiscardStringContext (toString localEvaluatorSource)}";
     sha256 = "sha256-7Fr57ffRQQ7hHYhZ+Ns7d+NrjjcfAdPIOxQ/CNmGCDQ=";
