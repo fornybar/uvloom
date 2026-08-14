@@ -64,14 +64,17 @@ let
     } "mkdir -p $out";
   evaluatorStorePath = builtins.toFile "private-wheel-1.0.0-py3-none-any.whl" "not a wheel";
   pathFetch = _args: evaluatorStorePath;
-  localEvaluatorSource = builtins.toFile "private-registry-pyproject.toml" (
-    builtins.readFile ./fixtures/private-registry/pyproject.toml
-  );
-  localEvaluatorFetch = builtins.fetchurl {
-    url = "file://${builtins.unsafeDiscardStringContext (toString localEvaluatorSource)}";
-    sha256 = "sha256-7Fr57ffRQQ7hHYhZ+Ns7d+NrjjcfAdPIOxQ/CNmGCDQ=";
+  localEvaluatorSource = builtins.path {
+    path = ./fixtures/private-registry/pyproject.toml;
     name = "private-registry-pyproject.toml";
   };
+  localEvaluatorFetch = builtins.seq (builtins.readFile localEvaluatorSource) (
+    builtins.fetchurl {
+      url = "file://${builtins.unsafeDiscardStringContext (toString localEvaluatorSource)}";
+      sha256 = "sha256-7Fr57ffRQQ7hHYhZ+Ns7d+NrjjcfAdPIOxQ/CNmGCDQ=";
+      name = "private-registry-pyproject.toml";
+    }
+  );
   privateRegistryProject = uvloom.lib.project.load {
     root = ./fixtures/private-registry;
   };
