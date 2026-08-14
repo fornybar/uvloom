@@ -11,11 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
       - run: nix flake check
+      - name: Check release notes
+        run: |
+          tag="v$(tr -d '[:space:]' < VERSION)"
+          nix develop .#release -c git-cliff \
+            --unreleased \
+            --tag "$tag" \
+            --strip header \
+            --output /tmp/release-notes.md
       - name: Check examples against workspace uvloom
         run: |
           for example in examples/*; do
