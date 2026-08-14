@@ -64,7 +64,10 @@ let
     } "mkdir -p $out";
   evaluatorStorePath = builtins.toFile "private-wheel-1.0.0-py3-none-any.whl" "not a wheel";
   pathFetch = _args: evaluatorStorePath;
-  localEvaluatorSource = ./fixtures/private-registry/pyproject.toml;
+  localEvaluatorSource = builtins.path {
+    path = ./fixtures/private-registry/pyproject.toml;
+    name = "private-registry-pyproject.toml";
+  };
   localEvaluatorFetch = builtins.seq (builtins.readFile localEvaluatorSource) (
     builtins.fetchurl {
       url = "file://${builtins.unsafeDiscardStringContext (toString localEvaluatorSource)}";
