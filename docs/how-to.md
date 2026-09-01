@@ -19,7 +19,7 @@ Load project once, then create a scope per system:
 ```nix
 outputs = { nixpkgs, uvloom, ... }:
   let
-    systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+    systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
     forAllSystems = nixpkgs.lib.genAttrs systems;
     project = uvloom.lib.project.load { root = ./.; };
   in
