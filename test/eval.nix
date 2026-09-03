@@ -456,21 +456,23 @@ assert
   projectForgeFetchScope.pythonSet."smiley-plot".version == scope.pythonSet."smiley-plot".version;
 assert builtins.isFunction omittedForgeFetchExtension;
 assert builtins.isFunction nullForgeFetchExtension;
+assert (forgeFetchLib.internal.validateConfig "auto").mode == "auto";
+assert (forgeFetchLib.internal.validateConfig [ "demo" ]).packages == [ "demo" ];
+assert (forgeFetchLib.internal.validateConfig { packages = [ "demo" ]; }).mode == "explicit";
 assert
-  forgeFetchLib.internal.validateConfig "auto" == {
-    mode = "auto";
-    packages = null;
-  };
-assert
-  forgeFetchLib.internal.validateConfig [ "demo" ] == {
+  forgeFetchLib.internal.validateConfig {
+    packages = [ "demo" ];
+    hosts = {
+      "GitLab.Sintef.No" = "gitlab";
+    };
+  } == {
     mode = "explicit";
     packages = [ "demo" ];
+    hosts = {
+      "gitlab.sintef.no" = "gitlab";
+    };
   };
-assert
-  forgeFetchLib.internal.validateConfig { packages = [ "demo" ]; } == {
-    mode = "explicit";
-    packages = [ "demo" ];
-  };
+assert (forgeFetchLib.internal.validateConfig { packages = "auto"; }).packages == null;
 assert forgeFetchLib.internal.normalizePackageName "My_Pkg.Name" == "my-pkg-name";
 assert
   forgeFetchLib.internal.parseGitSource "git+https://github.com/OWNER/REPO.git#${lockedRev}" == {
@@ -516,22 +518,25 @@ assert
     rev = lockedRev;
   };
 assert
-  forgeFetchLib.internal.parseForgeUrl "https://github.com/OWNER/REPO.git" == {
+  forgeFetchLib.internal.parseForgeUrl "https://github.com/OWNER/REPO.git" { } == {
     type = "github";
     owner = "OWNER";
     repo = "REPO";
+    host = "github.com";
   };
 assert
-  forgeFetchLib.internal.parseForgeUrl "git@gitlab.com:OWNER/REPO.git" == {
+  forgeFetchLib.internal.parseForgeUrl "git@gitlab.com:OWNER/REPO.git" { } == {
     type = "gitlab";
     owner = "OWNER";
     repo = "REPO";
+    host = "gitlab.com";
   };
 assert
-  forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/GROUP/SUBGROUP/REPO.git" == {
+  forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/GROUP/SUBGROUP/REPO.git" { } == {
     type = "gitlab";
     owner = "GROUP/SUBGROUP";
     repo = "REPO";
+    host = "gitlab.com";
   };
 assert
   forgeFetchLib.internal.mkFetchTreeInput {
@@ -544,6 +549,64 @@ assert
     rev = lockedRev;
   };
 assert
+  let
+    overlay = forgeFetchLib.mkOverlay {
+      root = ./.;
+      config = {
+        packages = [ "demo" ];
+        hosts."gitlab.sintef.no" = "gitlab";
+      };
+      uvLock.package = [
+        {
+          name = "demo";
+          source.git = "https://gitlab.sintef.no/energy/shop/pyshop.git#${lockedRev}";
+        }
+      ];
+      fetchTree = input: input;
+    };
+    result = overlay { } {
+      demo = {
+        overrideAttrs = f: f { };
+      };
+    };
+  in
+  result.demo.src == {
+    type = "gitlab";
+    owner = "energy%2Fshop";
+    repo = "pyshop";
+    rev = lockedRev;
+    host = "gitlab.sintef.no";
+  };
+assert
+  let
+    overlay = forgeFetchLib.mkOverlay {
+      root = ./.;
+      config = {
+        packages = [ "demo" ];
+        hosts."github.example" = "github";
+      };
+      uvLock.package = [
+        {
+          name = "demo";
+          source.git = "https://github.example/OWNER/REPO.git#${lockedRev}";
+        }
+      ];
+      fetchTree = input: input;
+    };
+    result = overlay { } {
+      demo = {
+        overrideAttrs = f: f { };
+      };
+    };
+  in
+  result.demo.src == {
+    type = "github";
+    owner = "OWNER";
+    repo = "REPO";
+    rev = lockedRev;
+    host = "github.example";
+  };
+assert
   forgeFetchLib.internal.mkFetchTreeInput {
     attrName = "demo";
     sourceGit = "git+https://github.com/OWNER/REPO.git?subdirectory=packages/demo&tag=v1.0.0#${lockedRev}";
@@ -553,13 +616,6 @@ assert
     repo = "REPO";
     rev = lockedRev;
   };
-assert
-  forgeFetchLib.internal.mkSourceValue {
-    url = "git+https://github.com/OWNER/REPO.git";
-    rev = lockedRev;
-    subdirectory = "packages/demo";
-  } "/nix/store/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-source"
-  == "/nix/store/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee-source";
 assert
   forgeFetchLib.internal.selectPackages {
     packages = [ "My_Pkg" ];
