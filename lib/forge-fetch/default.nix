@@ -7,6 +7,10 @@
 let
   where = "forgeFetch";
   configTypeError = "must be null, `auto`, a package-name list, or an attribute set with `packages`";
+  builtInHosts = {
+    "github.com" = "github";
+    "gitlab.com" = "gitlab";
+  };
 
   failPackage = name: message: fail where "package `${name}`: ${message}";
 
@@ -19,6 +23,7 @@ let
       where
       configTypeError
       ;
+    inherit builtInHosts;
   };
 
   gitSource = import ./git-source.nix {
@@ -27,6 +32,7 @@ let
 
   forgeUrl = import ./forge-url.nix {
     inherit lib fail where;
+    inherit builtInHosts;
   };
 
   packages = import ./packages.nix {
@@ -42,19 +48,29 @@ let
     entry:
     let
       parsedGit = gitSource.parseGitSource entry.sourceGit;
-      forgeInput = forgeUrl.parseForgeUrl parsedGit.url;
+      forgeInput = forgeUrl.parseForgeUrl parsedGit.url (entry.forgeHosts or { });
+      owner =
+        if forgeInput.type == "gitlab" then
+          lib.replaceStrings [ "/" ] [ "%2F" ] forgeInput.owner
+        else
+          forgeInput.owner;
     in
     {
-      inherit (forgeInput) type owner repo;
+      type = forgeInput.type;
+      inherit owner;
+      inherit (forgeInput) repo;
       inherit (parsedGit) rev;
+    }
+    // lib.optionalAttrs (!(forgeInput.host == "github.com" || forgeInput.host == "gitlab.com")) {
+      host = forgeInput.host;
     };
 
-  mkSourceEntry = entry: {
+  mkSourceEntry = fetchTree: hosts: entry: {
     name = entry.attrName;
     value = builtins.addErrorContext "while fetching forgeFetch package `${entry.attrName}`" (
       let
         parsedGit = gitSource.parseGitSource entry.sourceGit;
-        fetched = builtins.fetchTree (mkFetchTreeInput entry);
+        fetched = fetchTree (mkFetchTreeInput (entry // { forgeHosts = hosts; }));
       in
       mkSourceValue parsedGit fetched
     );
@@ -79,6 +95,7 @@ let
       root,
       config,
       uvLock ? builtins.fromTOML (builtins.readFile (root + "/uv.lock")),
+      fetchTree ? builtins.fetchTree,
     }:
     let
       forgeConfig = configLib.validateConfig config;
@@ -91,7 +108,7 @@ let
           inherit uvLock;
           config = forgeConfig;
         };
-        sources = builtins.listToAttrs (map mkSourceEntry selectedPackages);
+        sources = builtins.listToAttrs (map (mkSourceEntry fetchTree forgeConfig.hosts) selectedPackages);
       in
       final: prev: lib.mapAttrs (overridePackageSrc prev) sources;
 in

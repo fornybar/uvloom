@@ -384,11 +384,9 @@ Artifact URLs may contain query or fragment components. uv lock records these as
 
 ### Private Git dependencies
 
-By default, uvloom fetches locked Git dependencies from GitHub and GitLab
-through Nix's forge-aware `builtins.fetchTree` support. This reuses Nix
-`access-tokens`, avoiding a separate Git credentials helper or `.netrc` setup
-for Git sources. It bypasses a limitation of `uv2nix`, which uses `fetchGit`
-for source fetching.
+By default, uvloom fetches locked GitHub and GitLab dependencies with
+`builtins.fetchTree`. This uses Nix `access-tokens` instead of Git credentials.
+uv2nix normally uses `fetchGit`.
 
 Configure forge credentials in `nix.conf` (or set in `NIX_CONFIG`):
 
@@ -397,9 +395,8 @@ Configure forge credentials in `nix.conf` (or set in `NIX_CONFIG`):
 access-tokens = github.com=<github-token> gitlab.com=<gitlab-token>
 ```
 
-Include only hosts you use. Keep tokens outside the repository and protect the
-configuration file. Flake users may already have `access-tokens` configured
-for private flake inputs.
+Keep tokens outside the repository. Flake users may already have these tokens
+configured.
 
 `forgeFetch = "auto"` applies to all locked Git packages in `uv.lock`. To limit the behavior, name packages explicitly:
 
@@ -410,7 +407,24 @@ project = uvloom.lib.project.load {
 };
 ```
 
-Package names use normal Python package-name normalization, so `My_Pkg` and `my-pkg` match the same lock entry.
+Package names use Python package-name normalization, so `My_Pkg` and `my-pkg`
+match the same lock entry.
+
+Classify self-hosted instances by hostname. This example uses GNOME's GitLab:
+
+```nix
+forgeFetch = {
+  packages = "auto";
+  hosts."gitlab.gnome.org" = "gitlab";
+};
+```
+
+For a private repository on that host, configure the matching token outside the
+flake:
+
+```ini
+access-tokens = gitlab.gnome.org=<gitlab-token>
+```
 
 Disable forge fetch with `null`:
 
@@ -421,12 +435,13 @@ project = uvloom.lib.project.load {
 };
 ```
 
-Can be applied per-scope as well. Supported sources:
+The same option is available per scope. Supported sources include built-in and
+configured GitHub and GitLab hosts. Supported URL forms are `https://...`,
+`git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
 
-- GitHub and GitLab.com repositories.
-- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
-
-Unsupported sources fail during evaluation with a `forgeFetch` error. `forgeFetch` supports locked uv Git URLs with `rev`/`branch`/`tag`, `subdirectory`, and commit fragments, including GitLab nested groups. Git submodules, Git LFS, and legacy `egg` fragments are not supported.
+Unsupported sources fail during evaluation. Locked references, subdirectories,
+commit fragments, and nested GitLab groups are supported. Git submodules, Git
+LFS, and `egg` fragments are not supported.
 
 ## Export packages to nixpkgs-style Python sets
 

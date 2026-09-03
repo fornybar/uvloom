@@ -56,13 +56,13 @@ The fetch paths use different Nix authentication settings:
 
 ### Private Git dependencies
 
-uv2nix normally fetches Git sources with `fetchGit`, which requires Git
-credential-helper or `.netrc` setup for private repositories. With
-`forgeFetch`, uvloom reads locked Git sources from `uv.lock` and routes
-supported GitHub and GitLab sources through forge-aware `builtins.fetchTree`.
-Nix can then reuse `access-tokens` already configured for private flake inputs.
-The locked commit remains the fetch revision, even when the source also names a
-branch or tag.
+uv2nix fetches Git sources with `fetchGit`, which uses Git credentials.
+`forgeFetch` routes locked GitHub and GitLab sources through
+`builtins.fetchTree`, which can use Nix `access-tokens`. It always fetches the
+commit recorded in `uv.lock`.
+
+`github.com` and `gitlab.com` are built in. The `hosts` map classifies other
+GitHub and GitLab instances. It does not contain credentials.
 
 ### Private registry artifacts
 

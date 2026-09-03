@@ -384,7 +384,10 @@ nix build .#docs
 
 ## Forge fetch
 
-For [git sources](https://docs.astral.sh/uv/concepts/projects/dependencies/#git) behind private GitHub organizations, `builtins.fetchGit`, which is used by `uv2nix` to fetch the resources, needs authentication details via a Git credentials helper (e.g. by running `gh auth setup-git`) or a `.netrc` file. `forgeFetch` instead fetches locked Git dependencies from GitHub/GitLab through Nix's forge-aware `builtins.fetchTree` support, using the `nix.conf` option `access-tokens` instead, which is often set up for `flake`-users anyway and avoids the extra step of setting up the credentials helper or .netrc file. 
+uv2nix fetches [Git sources](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)
+with `builtins.fetchGit`, which uses Git credentials. `forgeFetch` uses
+`builtins.fetchTree` for GitHub and GitLab sources, so Nix can use
+`access-tokens` instead.
 
 Accepted values:
 
@@ -394,12 +397,27 @@ Accepted values:
 | `"auto"` | Apply to all Git packages in `uv.lock`. Default. |
 | `[ "pkg" ]` | Apply only to named packages. |
 | `{ packages = [ "pkg" ]; }` | Explicit package-list form. |
+| `{ packages = "auto"; hosts = { ... }; }` | Explicit form with optional host mappings. |
+
+The canonical form requires `packages` and accepts optional `hosts`.
+`packages` is `"auto"` or a non-empty package list. `hosts` maps hostnames to
+`github` or `gitlab`; `github.com` and `gitlab.com` are built in. Hostname
+matching is case-insensitive. Put credentials in Nix configuration, not here.
+
+```nix
+forgeFetch = {
+  packages = "auto";
+  hosts."gitlab.gnome.org" = "gitlab";
+};
+```
 
 Package names use Python package-name normalization.
 
-Supported sources:
+Supported sources include built-in and configured GitHub and GitLab hosts.
+Supported URL forms are `https://...`, `git+https://...`, `ssh://git@...`, and
+`git@host:owner/repo.git`.
 
-- GitHub and GitLab.com repositories.
-- URL forms: `https://...`, `git+https://...`, `ssh://git@...`, and `git@host:owner/repo.git`.
-
-Unsupported sources fail during evaluation with a `forgeFetch` error. `forgeFetch` supports locked uv Git URLs with `rev`/`branch`/`tag`, `subdirectory`, and commit fragments, including GitLab nested groups. Git submodules, Git LFS, and legacy `egg` fragments are not supported. User overlays run after `forgeFetch` and can still override package attributes.
+Locked references, subdirectories, commit fragments, and nested GitLab groups
+are supported. Git submodules, Git LFS, and `egg` fragments are not supported.
+Unsupported sources fail during evaluation. User overlays run after
+`forgeFetch` and can override package attributes.

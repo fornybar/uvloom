@@ -67,6 +67,45 @@ assert fails (
     sourcePreference = "bad";
   }).pythonSet
 );
+assert fails (
+  forgeFetchLib.internal.mkFetchTreeInput {
+    sourceGit = "https://github.example/group/subgroup/repo.git#0123456789abcdef0123456789abcdef01234567";
+    forgeHosts = {
+      "github.example" = "github";
+    };
+  }
+);
+assert fails (
+  forgeFetchLib.internal.validateConfig {
+    packages = [ "demo" ];
+    hosts = {
+      "" = "gitlab";
+    };
+  }
+);
+assert fails (
+  forgeFetchLib.internal.validateConfig {
+    packages = [ "demo" ];
+    hosts = {
+      "gitlab.sintef.no" = "unknown";
+    };
+  }
+);
+assert fails (
+  forgeFetchLib.internal.validateConfig {
+    packages = [ "demo" ];
+    hosts = {
+      "GitLab.Sintef.No" = "gitlab";
+      "gitlab.sintef.no" = "gitlab";
+    };
+  }
+);
+assert fails (
+  forgeFetchLib.internal.validateConfig {
+    packages = [ "demo" ];
+    hosts."GitHub.Com" = "gitlab";
+  }
+);
 assert failsAuthenticatedFetch {
   package = [
     {
@@ -287,9 +326,12 @@ assert fails (
 assert fails (
   forgeFetchLib.internal.parseGitSource "https://github.com/o/r.git?subdirectory=one&rev=0123456789abcdef0123456789abcdef01234567#subdirectory=two"
 );
-assert fails (forgeFetchLib.internal.parseForgeUrl "https://example.com/o/r.git");
-assert fails (forgeFetchLib.internal.parseForgeUrl "https://github.com/group/subgroup/repo.git");
-assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group//repo.git");
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://example.com/o/r.git" { });
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://github.com/o/.git" { });
+assert fails (
+  forgeFetchLib.internal.parseForgeUrl "https://github.com/group/subgroup/repo.git" { }
+);
+assert fails (forgeFetchLib.internal.parseForgeUrl "https://gitlab.com/group//repo.git" { });
 assert fails (
   scope.venv {
     name = "bad-editable-env";
