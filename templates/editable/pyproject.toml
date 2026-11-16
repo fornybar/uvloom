@@ -13,3 +13,6 @@ test = ["pytest"]
 [build-system]
 requires = ["hatchling", "editables"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+exclude-newer = "P7D"

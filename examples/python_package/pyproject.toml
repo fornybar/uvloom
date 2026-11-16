@@ -25,3 +25,4 @@ where = ["src"]
 
 [tool.uv]
 package = true
+exclude-newer = "P7D"
