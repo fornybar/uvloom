@@ -6,3 +6,4 @@ dependencies = []
 
 [tool.uv]
 package = false
+exclude-newer = "P7D"
